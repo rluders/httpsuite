@@ -1,6 +1,7 @@
 package httpsuite
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -60,14 +61,20 @@ func SendResponse[T any](w http.ResponseWriter, code int, data T, errs []Error, 
 	w.WriteHeader(code)
 
 	// Attempt to encode the response as JSON
-	if err := json.NewEncoder(w).Encode(response); err != nil {
+	var buffer bytes.Buffer
+	if err := json.NewEncoder(&buffer).Encode(response); err != nil {
 		log.Printf("Error writing response: %v", err)
-
-		// Overwrite with internal server error code
-		w.WriteHeader(http.StatusInternalServerError)
 
 		errResponse := `{"errors":[{"code":500,"message":"Internal Server Error"}]}`
 		http.Error(w, errResponse, http.StatusInternalServerError)
 		return
+	}
+
+	// Set the status code after success encoding
+	w.WriteHeader(code)
+
+	// Write the encoded response to the ResponseWriter
+	if _, err := w.Write(buffer.Bytes()); err != nil {
+		log.Printf("Error writing response: %v", err)
 	}
 }

@@ -52,7 +52,7 @@ func ParseRequest[T RequestParamSetter](w http.ResponseWriter, r *http.Request, 
 
 		if err := request.SetParam(key, value); err != nil {
 			SendResponse[any](w, http.StatusInternalServerError, nil,
-				[]Error{{Code: http.StatusInternalServerError, Message: "Failed to set field " + key}}, nil)
+				[]Error{{Code: http.StatusInternalServerError, Message: "Failed to set field " + key, Details: err.Error()}}, nil)
 			return empty, err
 		}
 	}

@@ -38,6 +38,21 @@ func Test_SendResponse(t *testing.T) {
 			expectedCode: http.StatusNotFound,
 			expectedJSON: `{"errors":[{"code":404,"message":"Not Found"}]}`,
 		},
+		{
+			name:         "200 OK with pagination metadata",
+			code:         http.StatusOK,
+			data:         &TestResponse{Key: "value"},
+			meta:         &Meta{TotalPages: 100, Page: 1, PageSize: 10},
+			expectedCode: http.StatusOK,
+			expectedJSON: `{"data":{"key":"value"},"meta":{"total_pages":100,"page":1,"page_size":10}}`,
+		},
+		{
+			name:         "400 Bad Request with multiple errors",
+			code:         http.StatusBadRequest,
+			errs:         []Error{{Code: 400, Message: "Invalid email"}, {Code: 400, Message: "Invalid password"}},
+			expectedCode: http.StatusBadRequest,
+			expectedJSON: `{"errors":[{"code":400,"message":"Invalid email"},{"code":400,"message":"Invalid password"}]}`,
+		},
 	}
 
 	for _, tt := range tests {
