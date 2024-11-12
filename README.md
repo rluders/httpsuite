@@ -66,12 +66,13 @@ func main() {
 		}
 
 		// Step 2: Send a success response
-		httpsuite.SendResponse(w, "Request received successfully", http.StatusOK, &req)
+		httpsuite.SendResponse[SampleRequest](w, http.StatusOK, *req, nil, nil)
 	})
 
 	log.Println("Starting server on :8080")
 	http.ListenAndServe(":8080", r)
 }
+
 ```
 
 Check out the [example folder for a complete project](./examples) demonstrating how to integrate **httpsuite** into 

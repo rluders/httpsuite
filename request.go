@@ -30,7 +30,8 @@ func ParseRequest[T RequestParamSetter](w http.ResponseWriter, r *http.Request, 
 
 	if r.Body != http.NoBody {
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			SendResponse[any](w, "Invalid JSON format", http.StatusBadRequest, nil)
+			SendResponse[any](w, http.StatusBadRequest, nil,
+				[]Error{{Code: http.StatusBadRequest, Message: "Invalid JSON format"}}, nil)
 			return empty, err
 		}
 	}
@@ -44,19 +45,22 @@ func ParseRequest[T RequestParamSetter](w http.ResponseWriter, r *http.Request, 
 	for _, key := range pathParams {
 		value := chi.URLParam(r, key)
 		if value == "" {
-			SendResponse[any](w, "Parameter "+key+" not found in request", http.StatusBadRequest, nil)
+			SendResponse[any](w, http.StatusBadRequest, nil,
+				[]Error{{Code: http.StatusBadRequest, Message: "Parameter " + key + " not found in request"}}, nil)
 			return empty, errors.New("missing parameter: " + key)
 		}
 
 		if err := request.SetParam(key, value); err != nil {
-			SendResponse[any](w, "Failed to set field "+key, http.StatusInternalServerError, nil)
+			SendResponse[any](w, http.StatusInternalServerError, nil,
+				[]Error{{Code: http.StatusInternalServerError, Message: "Failed to set field " + key, Details: err.Error()}}, nil)
 			return empty, err
 		}
 	}
 
 	// Validate the combined request struct
 	if validationErr := IsRequestValid(request); validationErr != nil {
-		SendResponse[ValidationErrors](w, "Validation error", http.StatusBadRequest, validationErr)
+		SendResponse[any](w, http.StatusBadRequest, nil,
+			[]Error{{Code: http.StatusBadRequest, Message: "Validation error", Details: validationErr}}, nil)
 		return empty, errors.New("validation error")
 	}
 
