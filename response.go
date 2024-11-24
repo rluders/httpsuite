@@ -49,7 +49,7 @@ type Meta struct {
 //   - errs: A slice of Error structs to describe issues. Use `nil` for successful responses.
 //   - meta: Optional metadata, such as pagination information. Use `nil` if not needed.
 func SendResponse[T any](w http.ResponseWriter, code int, data T, errs []Error, meta *Meta) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	response := &Response[T]{
 		Data:   data,
@@ -57,16 +57,19 @@ func SendResponse[T any](w http.ResponseWriter, code int, data T, errs []Error, 
 		Meta:   meta,
 	}
 
-	// Set the status code after encoding to ensure no issues with writing the response body
-	w.WriteHeader(code)
-
 	// Attempt to encode the response as JSON
 	var buffer bytes.Buffer
 	if err := json.NewEncoder(&buffer).Encode(response); err != nil {
 		log.Printf("Error writing response: %v", err)
 
-		errResponse := `{"errors":[{"code":500,"message":"Internal Server Error"}]}`
-		http.Error(w, errResponse, http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(&Response[T]{
+			Errors: []Error{{
+				Code:    http.StatusInternalServerError,
+				Message: "Internal Server Error",
+				Details: err.Error(),
+			}},
+		})
 		return
 	}
 
@@ -75,6 +78,7 @@ func SendResponse[T any](w http.ResponseWriter, code int, data T, errs []Error, 
 
 	// Write the encoded response to the ResponseWriter
 	if _, err := w.Write(buffer.Bytes()); err != nil {
-		log.Printf("Error writing response: %v", err)
+		// Note: Cannot change status code here as headers are already sent
+		log.Printf("Failed to write response body (status=%d): %v", code, err)
 	}
 }

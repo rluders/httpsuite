@@ -67,7 +67,7 @@ func Test_SendResponse(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.expectedCode, w.Code)
-			assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+			assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
 			assert.JSONEq(t, tt.expectedJSON, w.Body.String())
 		})
 	}
