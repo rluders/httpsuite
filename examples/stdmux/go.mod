@@ -1,6 +1,6 @@
 module stdmux_example
 
-go 1.23.1
+go 1.23
 
 require 	github.com/rluders/httpsuite/v2 v2.0.0
 

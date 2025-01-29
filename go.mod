@@ -1,6 +1,6 @@
 module github.com/rluders/httpsuite/v2
 
-go 1.23.1
+go 1.23
 
 require (
 	github.com/go-playground/validator/v10 v10.24.0

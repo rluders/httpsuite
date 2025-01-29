@@ -1,6 +1,6 @@
 module chi_example
 
-go 1.23.1
+go 1.23
 
 require (
 	github.com/go-chi/chi/v5 v5.2.0
