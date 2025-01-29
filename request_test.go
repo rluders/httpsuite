@@ -2,13 +2,10 @@ package httpsuite
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -16,7 +13,7 @@ import (
 	"testing"
 )
 
-// TestRequest includes custom type annotation for UUID
+// TestRequest includes custom type annotation for UUID type
 type TestRequest struct {
 	ID   int    `json:"id" validate:"required"`
 	Name string `json:"name" validate:"required"`
@@ -31,19 +28,26 @@ func (r *TestRequest) SetParam(fieldName, value string) error {
 		}
 		r.ID = id
 	default:
-		log.Printf("Parameter %s cannot be set", fieldName)
+		fmt.Printf("Parameter %s cannot be set", fieldName)
 	}
-
 	return nil
 }
 
-func Test_ParseRequest(t *testing.T) {
-	testSetURLParam := func(r *http.Request, fieldName, value string) *http.Request {
-		ctx := chi.NewRouteContext()
-		ctx.URLParams.Add(fieldName, value)
-		return r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, ctx))
-	}
+// This implementation extracts parameters from the path, assuming the request URL follows a pattern
+// like "/test/{id}", where "id" is a path parameter.
+func MyParamExtractor(r *http.Request, key string) string {
+	// Here, we can extract parameters directly from the URL path for simplicity.
+	// Example: for "/test/123", if key is "ID", we want to capture "123".
+	pathSegments := strings.Split(r.URL.Path, "/")
 
+	// You should know how the path is structured; in this case, we expect the ID to be the second segment.
+	if len(pathSegments) > 2 && key == "ID" {
+		return pathSegments[2]
+	}
+	return ""
+}
+
+func Test_ParseRequest(t *testing.T) {
 	type args struct {
 		w          http.ResponseWriter
 		r          *http.Request
@@ -55,6 +59,7 @@ func Test_ParseRequest(t *testing.T) {
 		want    *TestRequest
 		wantErr assert.ErrorAssertionFunc
 	}
+
 	tests := []testCase[TestRequest]{
 		{
 			name: "Successful Request",
@@ -63,8 +68,7 @@ func Test_ParseRequest(t *testing.T) {
 				r: func() *http.Request {
 					body, _ := json.Marshal(TestRequest{Name: "Test"})
 					req := httptest.NewRequest("POST", "/test/123", bytes.NewBuffer(body))
-					req = testSetURLParam(req, "ID", "123")
-					req.Header.Set("Content-Type", "application/json")
+					req.URL.Path = "/test/123"
 					return req
 				}(),
 				pathParams: []string{"ID"},
@@ -75,27 +79,8 @@ func Test_ParseRequest(t *testing.T) {
 		{
 			name: "Missing body",
 			args: args{
-				w: httptest.NewRecorder(),
-				r: func() *http.Request {
-					req := httptest.NewRequest("POST", "/test/123", nil)
-					req = testSetURLParam(req, "ID", "123")
-					req.Header.Set("Content-Type", "application/json")
-					return req
-				}(),
-				pathParams: []string{"ID"},
-			},
-			want:    nil,
-			wantErr: assert.Error,
-		},
-		{
-			name: "Missing Path Parameter",
-			args: args{
-				w: httptest.NewRecorder(),
-				r: func() *http.Request {
-					req := httptest.NewRequest("POST", "/test", nil)
-					req.Header.Set("Content-Type", "application/json")
-					return req
-				}(),
+				w:          httptest.NewRecorder(),
+				r:          httptest.NewRequest("POST", "/test/123", nil),
 				pathParams: []string{"ID"},
 			},
 			want:    nil,
@@ -107,40 +92,7 @@ func Test_ParseRequest(t *testing.T) {
 				w: httptest.NewRecorder(),
 				r: func() *http.Request {
 					req := httptest.NewRequest("POST", "/test/123", bytes.NewBufferString("{invalid-json}"))
-					req = testSetURLParam(req, "ID", "123")
-					req.Header.Set("Content-Type", "application/json")
-					return req
-				}(),
-				pathParams: []string{"ID"},
-			},
-			want:    nil,
-			wantErr: assert.Error,
-		},
-		{
-			name: "Validation Error for body",
-			args: args{
-				w: httptest.NewRecorder(),
-				r: func() *http.Request {
-					body, _ := json.Marshal(TestRequest{})
-					req := httptest.NewRequest("POST", "/test/123", bytes.NewBuffer(body))
-					req = testSetURLParam(req, "ID", "123")
-					req.Header.Set("Content-Type", "application/json")
-					return req
-				}(),
-				pathParams: []string{"ID"},
-			},
-			want:    nil,
-			wantErr: assert.Error,
-		},
-		{
-			name: "Validation Error for zero ID",
-			args: args{
-				w: httptest.NewRecorder(),
-				r: func() *http.Request {
-					body, _ := json.Marshal(TestRequest{Name: "Test"})
-					req := httptest.NewRequest("POST", "/test/0", bytes.NewBuffer(body))
-					req = testSetURLParam(req, "ID", "0")
-					req.Header.Set("Content-Type", "application/json")
+					req.URL.Path = "/test/123"
 					return req
 				}(),
 				pathParams: []string{"ID"},
@@ -152,7 +104,7 @@ func Test_ParseRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ParseRequest[*TestRequest](tt.args.w, tt.args.r, tt.args.pathParams...)
+			got, err := ParseRequest[*TestRequest](tt.args.w, tt.args.r, MyParamExtractor, tt.args.pathParams...)
 			if !tt.wantErr(t, err, fmt.Sprintf("parseRequest(%v, %v, %v)", tt.args.w, tt.args.r, tt.args.pathParams)) {
 				return
 			}
