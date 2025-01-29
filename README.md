@@ -12,7 +12,12 @@ cleaner, more maintainable code with reduced boilerplate.
 - **Modular Design:** Each component (Request, Validation, Response) can be used independently, 
 enhancing testability and flexibility.
 
-> **Note:** Currently it only supports Chi.
+### Supported routers
+
+- Gorilla MUX
+- Chi
+- Go Standard
+- ...maybe more? Submit a PR with an example.
 
 ## Installation
 
