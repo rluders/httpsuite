@@ -27,14 +27,23 @@ func Test_SendResponse(t *testing.T) {
 			code:         http.StatusOK,
 			data:         &TestResponse{Key: "value"},
 			expectedCode: http.StatusOK,
-			expectedJSON: `{"data":{"key":"value"}}`,
+			expectedJSON: `{
+				"data": {
+					"key": "value"
+				}
+			}`,
 		},
 		{
 			name:         "404 Not Found without body",
 			code:         http.StatusNotFound,
-			problem:      NewProblemDetails(http.StatusNotFound, "Not Found", "The requested resource was not found"),
+			problem:      NewProblemDetails(http.StatusNotFound, "", "Not Found", "The requested resource was not found"),
 			expectedCode: http.StatusNotFound,
-			expectedJSON: `{"type":"about:blank","title":"Not Found","status":404,"detail":"The requested resource was not found"}`,
+			expectedJSON: `{
+				"type": "about:blank",
+				"title": "Not Found",
+				"status": 404,
+				"detail": "The requested resource was not found"
+			}`,
 		},
 		{
 			name:         "200 OK with pagination metadata",
@@ -42,7 +51,16 @@ func Test_SendResponse(t *testing.T) {
 			data:         &TestResponse{Key: "value"},
 			meta:         &Meta{TotalPages: 100, Page: 1, PageSize: 10},
 			expectedCode: http.StatusOK,
-			expectedJSON: `{"data":{"key":"value"},"meta":{"total_pages":100,"page":1,"page_size":10}}`,
+			expectedJSON: `{
+				"data": {
+					"key": "value"
+				},
+				"meta": {
+					"total_pages": 100,
+					"page": 1,
+					"page_size": 10
+				}
+			}`,
 		},
 		{
 			name: "400 Bad Request with validation error",

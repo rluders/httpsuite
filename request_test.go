@@ -82,7 +82,7 @@ func Test_ParseRequest(t *testing.T) {
 			},
 			want:       nil,
 			wantErr:    assert.Error,
-			wantDetail: NewProblemDetails(http.StatusBadRequest, "Validation Error", "One or more fields failed validation."),
+			wantDetail: NewProblemDetails(http.StatusBadRequest, "about:blank", "Validation Error", "One or more fields failed validation."),
 		},
 		{
 			name: "Invalid JSON Body",
@@ -97,7 +97,7 @@ func Test_ParseRequest(t *testing.T) {
 			},
 			want:       nil,
 			wantErr:    assert.Error,
-			wantDetail: NewProblemDetails(http.StatusBadRequest, "Invalid Request", "invalid character 'i' looking for beginning of object key string"),
+			wantDetail: NewProblemDetails(http.StatusBadRequest, "about:blank", "Invalid Request", "invalid character 'i' looking for beginning of object key string"),
 		},
 	}
 

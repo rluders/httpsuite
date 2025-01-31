@@ -64,7 +64,12 @@ func ParseRequest[T RequestParamSetter](w http.ResponseWriter, r *http.Request, 
 	// Decode JSON body if present
 	if r.Body != http.NoBody {
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			problem := NewProblemDetails(http.StatusBadRequest, "Invalid Request", err.Error())
+			problem := NewProblemDetails(
+				http.StatusBadRequest,
+				GetProblemTypeURL("bad_request_error"),
+				"Invalid Request",
+				err.Error(),
+			)
 			SendResponse[any](w, http.StatusBadRequest, nil, problem, nil)
 			return empty, err
 		}
@@ -79,12 +84,23 @@ func ParseRequest[T RequestParamSetter](w http.ResponseWriter, r *http.Request, 
 	for _, key := range pathParams {
 		value := paramExtractor(r, key)
 		if value == "" {
-			problem := NewProblemDetails(http.StatusBadRequest, "Missing Parameter", "Parameter "+key+" not found in request")
+			problem := NewProblemDetails(
+				http.StatusBadRequest,
+				GetProblemTypeURL("bad_request_error"),
+				"Missing Parameter",
+				"Parameter "+key+" not found in request",
+			)
 			SendResponse[any](w, http.StatusBadRequest, nil, problem, nil)
 			return empty, errors.New("missing parameter: " + key)
 		}
+
 		if err := request.SetParam(key, value); err != nil {
-			problem := NewProblemDetails(http.StatusInternalServerError, "Parameter Error", "Failed to set field "+key)
+			problem := NewProblemDetails(
+				http.StatusInternalServerError,
+				GetProblemTypeURL("sever_error"),
+				"Parameter Error",
+				"Failed to set field "+key,
+			)
 			problem.Extensions = map[string]interface{}{"error": err.Error()}
 			SendResponse[any](w, http.StatusInternalServerError, nil, problem, nil)
 			return empty, err

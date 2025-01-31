@@ -22,7 +22,12 @@ func NewValidationProblemDetails(err error) *ProblemDetails {
 	var validationErrors validator.ValidationErrors
 	if !errors.As(err, &validationErrors) {
 		// If the error is not of type ValidationErrors, return a generic problem response.
-		return NewProblemDetails(http.StatusBadRequest, "Invalid Request", "Invalid data format or structure")
+		return NewProblemDetails(
+			http.StatusBadRequest,
+			GetProblemTypeURL("bad_request_error"),
+			"Invalid Request",
+			"Invalid data format or structure",
+		)
 	}
 
 	// Collect structured details about each validation error.
@@ -35,7 +40,7 @@ func NewValidationProblemDetails(err error) *ProblemDetails {
 	}
 
 	return &ProblemDetails{
-		Type:   "https://example.com/validation-error",
+		Type:   GetProblemTypeURL("validation_error"),
 		Title:  "Validation Error",
 		Status: http.StatusBadRequest,
 		Detail: "One or more fields failed validation.",

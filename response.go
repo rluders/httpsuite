@@ -22,26 +22,6 @@ type Meta struct {
 	TotalItems int `json:"total_items,omitempty"`
 }
 
-// ProblemDetails conforms to RFC 9457, providing a standard format for describing errors in HTTP APIs.
-type ProblemDetails struct {
-	Type       string                 `json:"type"`                 // A URI reference identifying the problem type.
-	Title      string                 `json:"title"`                // A short, human-readable summary of the problem.
-	Status     int                    `json:"status"`               // The HTTP status code.
-	Detail     string                 `json:"detail,omitempty"`     // Detailed explanation of the problem.
-	Instance   string                 `json:"instance,omitempty"`   // A URI reference identifying the specific instance of the problem.
-	Extensions map[string]interface{} `json:"extensions,omitempty"` // Custom fields for additional details.
-}
-
-// NewProblemDetails creates a ProblemDetails instance with standard fields.
-func NewProblemDetails(status int, title, detail string) *ProblemDetails {
-	return &ProblemDetails{
-		Type:   "about:blank", // Replace with a custom URI if desired.
-		Title:  title,
-		Status: status,
-		Detail: detail,
-	}
-}
-
 // SendResponse sends a JSON response to the client, supporting both success and error scenarios.
 //
 // Parameters:
@@ -69,7 +49,12 @@ func SendResponse[T any](w http.ResponseWriter, code int, data T, problem *Probl
 		log.Printf("Error writing response: %v", err)
 
 		// Internal server error fallback using ProblemDetails
-		internalError := NewProblemDetails(http.StatusInternalServerError, "Internal Server Error", err.Error())
+		internalError := NewProblemDetails(
+			http.StatusInternalServerError,
+			GetProblemTypeURL("server_error"),
+			"Internal Server Error",
+			err.Error(),
+		)
 		writeProblemDetail(w, http.StatusInternalServerError, internalError)
 		return
 	}

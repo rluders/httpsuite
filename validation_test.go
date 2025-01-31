@@ -21,10 +21,11 @@ func TestNewValidationProblemDetails(t *testing.T) {
 		t.Fatal("Expected validation errors, but got none")
 	}
 
+	SetProblemBaseURL("https://example.com")
 	validationProblem := NewValidationProblemDetails(err)
 
 	expectedProblem := &ProblemDetails{
-		Type:   "https://example.com/validation-error",
+		Type:   "https://example.com/errors/validation-error",
 		Title:  "Validation Error",
 		Status: 400,
 		Detail: "One or more fields failed validation.",
@@ -58,7 +59,7 @@ func TestIsRequestValid(t *testing.T) {
 			name:    "Missing Name and Age below minimum",
 			request: TestValidationRequest{Age: 17},
 			expectedProblem: &ProblemDetails{
-				Type:   "https://example.com/validation-error",
+				Type:   "https://example.com/errors/validation-error",
 				Title:  "Validation Error",
 				Status: 400,
 				Detail: "One or more fields failed validation.",
@@ -74,7 +75,7 @@ func TestIsRequestValid(t *testing.T) {
 			name:    "Missing Age",
 			request: TestValidationRequest{Name: "Alice"},
 			expectedProblem: &ProblemDetails{
-				Type:   "https://example.com/validation-error",
+				Type:   "https://example.com/errors/validation-error",
 				Title:  "Validation Error",
 				Status: 400,
 				Detail: "One or more fields failed validation.",
@@ -86,6 +87,8 @@ func TestIsRequestValid(t *testing.T) {
 			},
 		},
 	}
+
+	SetProblemBaseURL("https://example.com")
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -42,6 +42,9 @@ func main() {
 	// Creating the router with Gorilla Mux
 	r := mux.NewRouter()
 
+	// Define the ProblemBaseURL - doesn't create the handlers
+	httpsuite.SetProblemBaseURL("http://localhost:8080")
+
 	r.HandleFunc("/submit/{id}", func(w http.ResponseWriter, r *http.Request) {
 		// Using the function for parameter extraction to the ParseRequest
 		req, err := httpsuite.ParseRequest[*SampleRequest](w, r, GorillaMuxParamExtractor, "id")
