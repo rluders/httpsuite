@@ -127,6 +127,8 @@ func SetProblemErrorTypePaths(paths map[string]string) {
 //
 //	problemTypeURL := GetProblemTypeURL("validation_error")
 func GetProblemTypeURL(errorType string) string {
+	mu.RLock()
+	defer mu.RUnlock()
 	if path, exists := errorTypePaths[errorType]; exists {
 		return getProblemBaseURL() + path
 	}
@@ -136,6 +138,8 @@ func GetProblemTypeURL(errorType string) string {
 
 // getProblemBaseURL just return the baseURL if it isn't "about:blank"
 func getProblemBaseURL() string {
+	mu.RLock()
+	defer mu.RUnlock()
 	if problemBaseURL == BlankUrl {
 		return ""
 	}
