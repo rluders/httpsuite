@@ -85,5 +85,7 @@ func SendResponse[T any](w http.ResponseWriter, code int, data T, problem *Probl
 func writeProblemDetail(w http.ResponseWriter, code int, problem *ProblemDetails) {
 	w.Header().Set("Content-Type", "application/problem+json; charset=utf-8")
 	w.WriteHeader(problem.Status)
-	_ = json.NewEncoder(w).Encode(problem)
+	if err := json.NewEncoder(w).Encode(problem); err != nil {
+		log.Printf("Failed to encode problem details: %v", err)
+	}
 }
