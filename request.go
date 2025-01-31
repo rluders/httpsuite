@@ -61,37 +61,46 @@ func ParseRequest[T RequestParamSetter](w http.ResponseWriter, r *http.Request, 
 	var empty T
 	defer func() { _ = r.Body.Close() }()
 
+	// Decode JSON body if present
 	if r.Body != http.NoBody {
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			SendResponse[any](w, http.StatusBadRequest, nil, []Error{{Code: http.StatusBadRequest, Message: "Invalid JSON format"}}, nil)
+			problem := NewProblemDetails(http.StatusBadRequest, "Invalid Request", err.Error())
+			SendResponse[any](w, http.StatusBadRequest, nil, problem, nil)
 			return empty, err
 		}
 	}
 
+	// Ensure request object is properly initialized
 	if isRequestNil(request) {
 		request = reflect.New(reflect.TypeOf(request).Elem()).Interface().(T)
 	}
 
+	// Extract and set URL parameters
 	for _, key := range pathParams {
 		value := paramExtractor(r, key)
 		if value == "" {
-			SendResponse[any](w, http.StatusBadRequest, nil, []Error{{Code: http.StatusBadRequest, Message: "Parameter " + key + " not found in request"}}, nil)
+			problem := NewProblemDetails(http.StatusBadRequest, "Missing Parameter", "Parameter "+key+" not found in request")
+			SendResponse[any](w, http.StatusBadRequest, nil, problem, nil)
 			return empty, errors.New("missing parameter: " + key)
 		}
 		if err := request.SetParam(key, value); err != nil {
-			SendResponse[any](w, http.StatusInternalServerError, nil, []Error{{Code: http.StatusInternalServerError, Message: "Failed to set field " + key, Details: err.Error()}}, nil)
+			problem := NewProblemDetails(http.StatusInternalServerError, "Parameter Error", "Failed to set field "+key)
+			problem.Extensions = map[string]interface{}{"error": err.Error()}
+			SendResponse[any](w, http.StatusInternalServerError, nil, problem, nil)
 			return empty, err
 		}
 	}
 
+	// Validate the request
 	if validationErr := IsRequestValid(request); validationErr != nil {
-		SendResponse[any](w, http.StatusBadRequest, nil, []Error{{Code: http.StatusBadRequest, Message: "Validation error", Details: validationErr}}, nil)
+		SendResponse[any](w, http.StatusBadRequest, nil, validationErr, nil)
 		return empty, errors.New("validation error")
 	}
 
 	return request, nil
 }
 
+// isRequestNil checks if a request object is nil or an uninitialized pointer.
 func isRequestNil(i interface{}) bool {
 	return i == nil || (reflect.ValueOf(i).Kind() == reflect.Ptr && reflect.ValueOf(i).IsNil())
 }

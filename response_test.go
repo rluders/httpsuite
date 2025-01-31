@@ -17,7 +17,7 @@ func Test_SendResponse(t *testing.T) {
 		name         string
 		code         int
 		data         any
-		errs         []Error
+		problem      *ProblemDetails
 		meta         *Meta
 		expectedCode int
 		expectedJSON string
@@ -26,17 +26,15 @@ func Test_SendResponse(t *testing.T) {
 			name:         "200 OK with TestResponse body",
 			code:         http.StatusOK,
 			data:         &TestResponse{Key: "value"},
-			errs:         nil,
 			expectedCode: http.StatusOK,
 			expectedJSON: `{"data":{"key":"value"}}`,
 		},
 		{
 			name:         "404 Not Found without body",
 			code:         http.StatusNotFound,
-			data:         nil,
-			errs:         []Error{{Code: http.StatusNotFound, Message: "Not Found"}},
+			problem:      NewProblemDetails(http.StatusNotFound, "Not Found", "The requested resource was not found"),
 			expectedCode: http.StatusNotFound,
-			expectedJSON: `{"errors":[{"code":404,"message":"Not Found"}]}`,
+			expectedJSON: `{"type":"about:blank","title":"Not Found","status":404,"detail":"The requested resource was not found"}`,
 		},
 		{
 			name:         "200 OK with pagination metadata",
@@ -47,11 +45,33 @@ func Test_SendResponse(t *testing.T) {
 			expectedJSON: `{"data":{"key":"value"},"meta":{"total_pages":100,"page":1,"page_size":10}}`,
 		},
 		{
-			name:         "400 Bad Request with multiple errors",
-			code:         http.StatusBadRequest,
-			errs:         []Error{{Code: 400, Message: "Invalid email"}, {Code: 400, Message: "Invalid password"}},
+			name: "400 Bad Request with validation error",
+			code: http.StatusBadRequest,
+			problem: &ProblemDetails{
+				Type:   "https://example.com/validation-error",
+				Title:  "Validation Error",
+				Status: http.StatusBadRequest,
+				Detail: "One or more fields failed validation.",
+				Extensions: map[string]interface{}{
+					"errors": []ValidationErrorDetail{
+						{Field: "email", Message: "Email is required"},
+						{Field: "password", Message: "Password is required"},
+					},
+				},
+			},
 			expectedCode: http.StatusBadRequest,
-			expectedJSON: `{"errors":[{"code":400,"message":"Invalid email"},{"code":400,"message":"Invalid password"}]}`,
+			expectedJSON: `{
+				"type": "https://example.com/validation-error",
+				"title": "Validation Error",
+				"status": 400,
+				"detail": "One or more fields failed validation.",
+				"extensions": {
+					"errors": [
+						{"field": "email", "message": "Email is required"},
+						{"field": "password", "message": "Password is required"}
+					]
+				}
+			}`,
 		},
 	}
 
@@ -59,15 +79,17 @@ func Test_SendResponse(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
 
-			switch data := tt.data.(type) {
-			case TestResponse:
-				SendResponse[TestResponse](w, tt.code, data, tt.errs, tt.meta)
-			default:
-				SendResponse[any](w, tt.code, tt.data, tt.errs, tt.meta)
-			}
+			// Call SendResponse with the appropriate data or problem
+			SendResponse[any](w, tt.code, tt.data, tt.problem, tt.meta)
 
+			// Assert response status code and content type
 			assert.Equal(t, tt.expectedCode, w.Code)
-			assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+			if w.Code >= 400 {
+				assert.Equal(t, "application/problem+json; charset=utf-8", w.Header().Get("Content-Type"))
+			} else {
+				assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+			}
+			// Assert response body
 			assert.JSONEq(t, tt.expectedJSON, w.Body.String())
 		})
 	}
