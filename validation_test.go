@@ -1,9 +1,9 @@
 package httpsuite
 
 import (
-	"github.com/go-playground/validator/v10"
 	"testing"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -12,7 +12,7 @@ type TestValidationRequest struct {
 	Age  int    `validate:"required,min=18"`
 }
 
-func TestNewValidationErrors(t *testing.T) {
+func TestNewValidationProblemDetails(t *testing.T) {
 	validate := validator.New()
 	request := TestValidationRequest{} // Missing required fields to trigger validation errors
 
@@ -21,56 +21,88 @@ func TestNewValidationErrors(t *testing.T) {
 		t.Fatal("Expected validation errors, but got none")
 	}
 
-	validationErrors := NewValidationErrors(err)
+	SetProblemBaseURL("https://example.com")
+	validationProblem := NewValidationProblemDetails(err)
 
-	expectedErrors := map[string][]string{
-		"Name": {"Name required"},
-		"Age":  {"Age required"},
+	expectedProblem := &ProblemDetails{
+		Type:   "https://example.com/errors/validation-error",
+		Title:  "Validation Error",
+		Status: 400,
+		Detail: "One or more fields failed validation.",
+		Extensions: map[string]interface{}{
+			"errors": []ValidationErrorDetail{
+				{Field: "Name", Message: "Name failed required validation"},
+				{Field: "Age", Message: "Age failed required validation"},
+			},
+		},
 	}
 
-	assert.Equal(t, expectedErrors, validationErrors.Errors)
+	assert.Equal(t, expectedProblem.Type, validationProblem.Type)
+	assert.Equal(t, expectedProblem.Title, validationProblem.Title)
+	assert.Equal(t, expectedProblem.Status, validationProblem.Status)
+	assert.Equal(t, expectedProblem.Detail, validationProblem.Detail)
+	assert.ElementsMatch(t, expectedProblem.Extensions["errors"], validationProblem.Extensions["errors"])
 }
 
 func TestIsRequestValid(t *testing.T) {
 	tests := []struct {
-		name           string
-		request        TestValidationRequest
-		expectedErrors *ValidationErrors
+		name            string
+		request         TestValidationRequest
+		expectedProblem *ProblemDetails
 	}{
 		{
-			name:           "Valid request",
-			request:        TestValidationRequest{Name: "Alice", Age: 25},
-			expectedErrors: nil, // No errors expected for valid input
+			name:            "Valid request",
+			request:         TestValidationRequest{Name: "Alice", Age: 25},
+			expectedProblem: nil, // No errors expected for valid input
 		},
 		{
 			name:    "Missing Name and Age below minimum",
 			request: TestValidationRequest{Age: 17},
-			expectedErrors: &ValidationErrors{
-				Errors: map[string][]string{
-					"Name": {"Name required"},
-					"Age":  {"Age min"},
+			expectedProblem: &ProblemDetails{
+				Type:   "https://example.com/errors/validation-error",
+				Title:  "Validation Error",
+				Status: 400,
+				Detail: "One or more fields failed validation.",
+				Extensions: map[string]interface{}{
+					"errors": []ValidationErrorDetail{
+						{Field: "Name", Message: "Name failed required validation"},
+						{Field: "Age", Message: "Age failed min validation"},
+					},
 				},
 			},
 		},
 		{
 			name:    "Missing Age",
 			request: TestValidationRequest{Name: "Alice"},
-			expectedErrors: &ValidationErrors{
-				Errors: map[string][]string{
-					"Age": {"Age required"},
+			expectedProblem: &ProblemDetails{
+				Type:   "https://example.com/errors/validation-error",
+				Title:  "Validation Error",
+				Status: 400,
+				Detail: "One or more fields failed validation.",
+				Extensions: map[string]interface{}{
+					"errors": []ValidationErrorDetail{
+						{Field: "Age", Message: "Age failed required validation"},
+					},
 				},
 			},
 		},
 	}
 
+	SetProblemBaseURL("https://example.com")
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errs := IsRequestValid(tt.request)
-			if tt.expectedErrors == nil {
-				assert.Nil(t, errs)
+			problem := IsRequestValid(tt.request)
+
+			if tt.expectedProblem == nil {
+				assert.Nil(t, problem)
 			} else {
-				assert.NotNil(t, errs)
-				assert.Equal(t, tt.expectedErrors.Errors, errs.Errors)
+				assert.NotNil(t, problem)
+				assert.Equal(t, tt.expectedProblem.Type, problem.Type)
+				assert.Equal(t, tt.expectedProblem.Title, problem.Title)
+				assert.Equal(t, tt.expectedProblem.Status, problem.Status)
+				assert.Equal(t, tt.expectedProblem.Detail, problem.Detail)
+				assert.ElementsMatch(t, tt.expectedProblem.Extensions["errors"], problem.Extensions["errors"])
 			}
 		})
 	}

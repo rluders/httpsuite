@@ -46,6 +46,9 @@ func main() {
 	// Creating the router using the Go standard mux
 	mux := http.NewServeMux()
 
+	// Define the ProblemBaseURL - doesn't create the handlers
+	httpsuite.SetProblemBaseURL("http://localhost:8080")
+
 	// Define the endpoint POST
 	mux.HandleFunc("/submit/", func(w http.ResponseWriter, r *http.Request) {
 		// Using the function for parameter extraction to the ParseRequest

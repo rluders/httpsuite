@@ -52,6 +52,9 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	// Define the ProblemBaseURL - doesn't create the handlers
+	httpsuite.SetProblemBaseURL("http://localhost:8080")
+
 	// Define the endpoint POST
 	r.Post("/submit/{id}", func(w http.ResponseWriter, r *http.Request) {
 		// Using the function for parameter extraction to the ParseRequest
