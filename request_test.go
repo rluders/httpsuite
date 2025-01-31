@@ -115,6 +115,7 @@ func Test_ParseRequest(t *testing.T) {
 			// Check ProblemDetails if an error was expected.
 			if tt.wantDetail != nil {
 				rec := w.(*httptest.ResponseRecorder)
+				assert.Equal(t, "application/problem+json; charset=utf-8", rec.Header().Get("Content-Type"), "Content-Type header mismatch")
 				var pd ProblemDetails
 				decodeErr := json.NewDecoder(rec.Body).Decode(&pd)
 				assert.NoError(t, decodeErr, "Failed to decode problem details response")
