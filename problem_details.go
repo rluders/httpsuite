@@ -1,14 +1,19 @@
 package httpsuite
 
+import "sync"
+
 const BlankUrl = "about:blank"
 
-var problemBaseURL = BlankUrl
-var errorTypePaths = map[string]string{
-	"validation_error":  "/errors/validation-error",
-	"not_found_error":   "/errors/not-found",
-	"server_error":      "/errors/server-error",
-	"bad_request_error": "/errors/bad-request",
-}
+var (
+	mu             sync.RWMutex
+	problemBaseURL = BlankUrl
+	errorTypePaths = map[string]string{
+		"validation_error":  "/errors/validation-error",
+		"not_found_error":   "/errors/not-found",
+		"server_error":      "/errors/server-error",
+		"bad_request_error": "/errors/bad-request",
+	}
+)
 
 // ProblemDetails conforms to RFC 9457, providing a standard format for describing errors in HTTP APIs.
 type ProblemDetails struct {
@@ -52,6 +57,8 @@ func NewProblemDetails(status int, problemType, title, detail string) *ProblemDe
 //
 // If the base URL is not set, the default value for the "type" field will be "about:blank".
 func SetProblemBaseURL(baseURL string) {
+	mu.Lock()
+	defer mu.Unlock()
 	problemBaseURL = baseURL
 }
 
@@ -71,6 +78,8 @@ func SetProblemBaseURL(baseURL string) {
 //
 //	"https://api.mycompany.com/errors/validation-error"
 func SetProblemErrorTypePath(errorType, path string) {
+	mu.Lock()
+	defer mu.Unlock()
 	errorTypePaths[errorType] = path
 }
 
@@ -91,6 +100,8 @@ func SetProblemErrorTypePath(errorType, path string) {
 //
 // This method overwrites any existing paths with the same keys.
 func SetProblemErrorTypePaths(paths map[string]string) {
+	mu.Lock()
+	defer mu.Unlock()
 	for errorType, path := range paths {
 		errorTypePaths[errorType] = path
 	}

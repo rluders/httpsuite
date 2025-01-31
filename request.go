@@ -97,7 +97,7 @@ func ParseRequest[T RequestParamSetter](w http.ResponseWriter, r *http.Request, 
 		if err := request.SetParam(key, value); err != nil {
 			problem := NewProblemDetails(
 				http.StatusInternalServerError,
-				GetProblemTypeURL("sever_error"),
+				GetProblemTypeURL("server_error"),
 				"Parameter Error",
 				"Failed to set field "+key,
 			)
