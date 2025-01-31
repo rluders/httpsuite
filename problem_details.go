@@ -1,6 +1,9 @@
 package httpsuite
 
-import "sync"
+import (
+	"net/http"
+	"sync"
+)
 
 const BlankUrl = "about:blank"
 
@@ -29,6 +32,12 @@ type ProblemDetails struct {
 func NewProblemDetails(status int, problemType, title, detail string) *ProblemDetails {
 	if problemType == "" {
 		problemType = BlankUrl
+	}
+	if title == "" {
+		title = http.StatusText(status)
+		if title == "" {
+			title = "Unknown error"
+		}
 	}
 	return &ProblemDetails{
 		Type:   problemType,
