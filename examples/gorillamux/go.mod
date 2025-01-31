@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/gorilla/mux v1.8.1
-	github.com/rluders/httpsuite/v2 v2.0.0
+	github.com/rluders/httpsuite/v2 v2.1.0
 )
 
 require (

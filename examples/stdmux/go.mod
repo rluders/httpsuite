@@ -2,7 +2,7 @@ module stdmux_example
 
 go 1.23
 
-require github.com/rluders/httpsuite/v2 v2.0.0
+require github.com/rluders/httpsuite/v2 v2.1.0
 
 require (
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect

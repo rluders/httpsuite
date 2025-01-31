@@ -4,7 +4,7 @@ go 1.23
 
 require (
 	github.com/go-chi/chi/v5 v5.2.0
-	github.com/rluders/httpsuite/v2 v2.0.0
+	github.com/rluders/httpsuite/v2 v2.1.0
 )
 
 require (
