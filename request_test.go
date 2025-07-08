@@ -74,15 +74,44 @@ func Test_ParseRequest(t *testing.T) {
 			wantDetail: nil,
 		},
 		{
+			name: "Body Only - No URL Params",
+			args: args{
+				w: httptest.NewRecorder(),
+				r: func() *http.Request {
+					body, _ := json.Marshal(TestRequest{ID: 42, Name: "OnlyBody"})
+					req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(body))
+					return req
+				}(),
+				pathParams: []string{},
+			},
+			want:    &TestRequest{ID: 42, Name: "OnlyBody"},
+			wantErr: assert.NoError,
+		},
+		{
+			name: "Body Only - Nil Path Params",
+			args: args{
+				w: httptest.NewRecorder(),
+				r: func() *http.Request {
+					body, _ := json.Marshal(TestRequest{ID: 7, Name: "NilPathParams"})
+					req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(body))
+					return req
+				}(),
+				pathParams: nil,
+			},
+			want:    &TestRequest{ID: 7, Name: "NilPathParams"},
+			wantErr: assert.NoError,
+		},
+		{
 			name: "Missing body",
 			args: args{
 				w:          httptest.NewRecorder(),
 				r:          httptest.NewRequest("POST", "/test/123", nil),
 				pathParams: []string{"ID"},
 			},
-			want:       nil,
-			wantErr:    assert.Error,
-			wantDetail: NewProblemDetails(http.StatusBadRequest, "about:blank", "Validation Error", "One or more fields failed validation."),
+			want:    nil,
+			wantErr: assert.Error,
+			wantDetail: NewProblemDetails(http.StatusBadRequest, "about:blank", "Validation Error",
+				"One or more fields failed validation."),
 		},
 		{
 			name: "Invalid JSON Body",
@@ -95,9 +124,10 @@ func Test_ParseRequest(t *testing.T) {
 				}(),
 				pathParams: []string{"ID"},
 			},
-			want:       nil,
-			wantErr:    assert.Error,
-			wantDetail: NewProblemDetails(http.StatusBadRequest, "about:blank", "Invalid Request", "invalid character 'i' looking for beginning of object key string"),
+			want:    nil,
+			wantErr: assert.Error,
+			wantDetail: NewProblemDetails(http.StatusBadRequest, "about:blank", "Invalid Request",
+				"invalid character 'i' looking for beginning of object key string"),
 		},
 	}
 
@@ -115,7 +145,9 @@ func Test_ParseRequest(t *testing.T) {
 			// Check ProblemDetails if an error was expected.
 			if tt.wantDetail != nil {
 				rec := w.(*httptest.ResponseRecorder)
-				assert.Equal(t, "application/problem+json; charset=utf-8", rec.Header().Get("Content-Type"), "Content-Type header mismatch")
+				assert.Equal(t, "application/problem+json; charset=utf-8",
+					rec.Header().Get("Content-Type"), "Content-Type header mismatch")
+
 				var pd ProblemDetails
 				decodeErr := json.NewDecoder(rec.Body).Decode(&pd)
 				assert.NoError(t, decodeErr, "Failed to decode problem details response")
