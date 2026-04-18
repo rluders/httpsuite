@@ -80,17 +80,29 @@ func DecodeRequestBody[T any](r *http.Request, maxBodyBytes int64) (T, error) {
 	}
 
 	var trailing json.RawMessage
-	if err := decoder.Decode(&trailing); err != io.EOF {
-		if err == nil {
-			err = errors.New("request body must contain a single JSON document")
+	if err := decoder.Decode(&trailing); err != nil {
+		if errors.Is(err, io.EOF) {
+			return request, nil
 		}
+
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			return request, &BodyDecodeError{
+				Kind:  BodyDecodeErrorBodyTooLarge,
+				Err:   err,
+				Limit: maxBytesErr.Limit,
+			}
+		}
+
 		return request, &BodyDecodeError{
 			Kind: BodyDecodeErrorMultipleDocuments,
 			Err:  err,
 		}
 	}
-
-	return request, nil
+	return request, &BodyDecodeError{
+		Kind: BodyDecodeErrorMultipleDocuments,
+		Err:  errors.New("request body must contain a single JSON document"),
+	}
 }
 
 type nilResponseWriter struct{}

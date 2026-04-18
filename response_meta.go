@@ -2,7 +2,7 @@ package httpsuite
 
 // Response represents the structure of an HTTP response, including an optional body and metadata.
 type Response[T any] struct {
-	Data T   `json:"data,omitempty"`
+	Data T   `json:"data"`
 	Meta any `json:"meta,omitempty"`
 }
 
@@ -21,8 +21,8 @@ type Meta = PageMeta
 type CursorMeta struct {
 	NextCursor string `json:"next_cursor,omitempty"`
 	PrevCursor string `json:"prev_cursor,omitempty"`
-	HasNext    bool   `json:"has_next,omitempty"`
-	HasPrev    bool   `json:"has_prev,omitempty"`
+	HasNext    bool   `json:"has_next"`
+	HasPrev    bool   `json:"has_prev"`
 }
 
 // NewPageMeta builds page-based metadata and derives total pages when possible.

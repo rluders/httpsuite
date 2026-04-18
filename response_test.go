@@ -92,3 +92,47 @@ func TestSendResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestSendResponseDoesNotLeakEncodeErrors(t *testing.T) {
+	t.Parallel()
+
+	w := httptest.NewRecorder()
+	SendResponse[any](w, http.StatusOK, map[string]any{"bad": func() {}}, nil, nil)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+
+	var problem ProblemDetails
+	if err := json.NewDecoder(w.Body).Decode(&problem); err != nil {
+		t.Fatalf("decode problem details: %v", err)
+	}
+	if problem.Detail != "The server could not serialize the response." {
+		t.Fatalf("unexpected detail %q", problem.Detail)
+	}
+}
+
+func TestProblemResponseFallsBackWhenProblemEncodingFails(t *testing.T) {
+	t.Parallel()
+
+	w := httptest.NewRecorder()
+	problem := NewBadRequestProblem("invalid")
+	problem.Extensions = map[string]interface{}{"bad": func() {}}
+
+	ProblemResponse(w, problem)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+
+	var got ProblemDetails
+	if err := json.NewDecoder(w.Body).Decode(&got); err != nil {
+		t.Fatalf("decode fallback problem details: %v", err)
+	}
+	if got.Title != "Internal Server Error" {
+		t.Fatalf("expected fallback title, got %q", got.Title)
+	}
+	if got.Detail != "An internal server error occurred." {
+		t.Fatalf("expected fallback detail, got %q", got.Detail)
+	}
+}

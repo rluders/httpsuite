@@ -3,6 +3,8 @@ package playground
 import (
 	"errors"
 	"net/http"
+	"reflect"
+	"strings"
 
 	playgroundvalidator "github.com/go-playground/validator/v10"
 	"github.com/rluders/httpsuite/v3"
@@ -31,11 +33,26 @@ func NewWithValidator(validate *playgroundvalidator.Validate, problems *httpsuit
 	if validate == nil {
 		validate = playgroundvalidator.New()
 	}
+	registerJSONTagNames(validate)
 
 	return &Validator{
 		validate: validate,
 		problems: mergeProblems(problems),
 	}
+}
+
+func registerJSONTagNames(validate *playgroundvalidator.Validate) {
+	validate.RegisterTagNameFunc(func(field reflect.StructField) string {
+		name := field.Tag.Get("json")
+		if name == "" {
+			return field.Name
+		}
+		name = strings.Split(name, ",")[0]
+		if name == "-" || name == "" {
+			return field.Name
+		}
+		return name
+	})
 }
 
 // Validate validates the request and converts errors into ProblemDetails.

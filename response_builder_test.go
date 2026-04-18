@@ -76,7 +76,7 @@ func TestReplyBuilderHelpers(t *testing.T) {
 	t.Run("headers then created", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		Reply().
-			Headers(http.Header{"X-Trace-ID": []string{"trace-123"}}).
+			Headers(http.Header{"X-Trace-ID": []string{"trace-123", "trace-456"}}).
 			Created(w, testResponse{Key: "value"}, "/users/1")
 
 		if w.Code != http.StatusCreated {
@@ -85,8 +85,8 @@ func TestReplyBuilderHelpers(t *testing.T) {
 		if got := w.Header().Get("Location"); got != "/users/1" {
 			t.Fatalf("expected location header, got %q", got)
 		}
-		if got := w.Header().Get("X-Trace-ID"); got != "trace-123" {
-			t.Fatalf("expected trace header, got %q", got)
+		if got := w.Header().Values("X-Trace-ID"); len(got) != 2 || got[0] != "trace-123" || got[1] != "trace-456" {
+			t.Fatalf("expected repeated trace headers, got %#v", got)
 		}
 	})
 }

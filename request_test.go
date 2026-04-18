@@ -87,8 +87,8 @@ func TestParseRequest(t *testing.T) {
 			pathParams:         []string{"id"},
 			opts:               &ParseOptions{MaxBodyBytes: 8},
 			wantErr:            true,
-			wantStatus:         http.StatusBadRequest,
-			wantTitle:          "Request Body Too Large",
+			wantStatus:         http.StatusRequestEntityTooLarge,
+			wantTitle:          "Payload Too Large",
 			wantDetailContains: "exceeds the limit",
 		},
 		{

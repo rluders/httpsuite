@@ -5,6 +5,16 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semantic version bump"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 concurrency:
   group: release-${{ github.ref }}
@@ -57,12 +67,71 @@ jobs:
           GOWORK: off
         run: go test ./...
 
+  tag-release:
+    name: Create release tag
+    runs-on: ubuntu-latest
+    needs: verify
+    if: github.event_name == 'workflow_dispatch'
+    outputs:
+      tag_name: ${{ steps.tag.outputs.tag_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create and push tag
+        id: tag
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          latest_tag="$(git tag --list 'v*' --sort=-version:refname | head -n 1)"
+          if [ -z "$latest_tag" ]; then
+            latest_tag="v0.0.0"
+          fi
+
+          version="${latest_tag#v}"
+          IFS='.' read -r major minor patch <<< "$version"
+
+          case "$BUMP" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+            *)
+              echo "unsupported bump: $BUMP" >&2
+              exit 1
+              ;;
+          esac
+
+          tag_name="v${major}.${minor}.${patch}"
+          git tag "$tag_name"
+          git push origin "$tag_name"
+          echo "tag_name=$tag_name" >> "$GITHUB_OUTPUT"
+
   github-release:
     name: Publish GitHub release
     runs-on: ubuntu-latest
-    needs: verify
+    needs:
+      - verify
+      - tag-release
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     steps:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && needs.tag-release.outputs.tag_name || github.ref_name }}
           generate_release_notes: true

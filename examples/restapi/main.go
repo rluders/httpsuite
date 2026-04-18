@@ -128,14 +128,7 @@ func main() {
 		pageSize := readPositiveInt(r, "page_size", 2)
 
 		users := store.List()
-		start := (page - 1) * pageSize
-		if start > len(users) {
-			start = len(users)
-		}
-		end := start + pageSize
-		if end > len(users) {
-			end = len(users)
-		}
+		start, end := clampPageWindow(page, pageSize, len(users))
 
 		httpsuite.Reply().
 			Meta(httpsuite.NewPageMeta(page, pageSize, len(users))).
@@ -207,6 +200,35 @@ func readPositiveInt(r *http.Request, key string, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+func clampPageWindow(page, pageSize, total int) (int, int) {
+	if total <= 0 {
+		return 0, 0
+	}
+	if page <= 1 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = total
+	}
+
+	totalPages := 1 + (total-1)/pageSize
+	if page > totalPages {
+		return total, total
+	}
+
+	start := (page - 1) * pageSize
+	if start > total {
+		start = total
+	}
+
+	end := total
+	if remaining := total - start; pageSize < remaining {
+		end = start + pageSize
+	}
+
+	return start, end
 }
 
 func nilParamExtractor(*http.Request, string) string {

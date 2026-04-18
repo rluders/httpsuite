@@ -1,6 +1,9 @@
 package httpsuite
 
-import "net/http"
+import (
+	"encoding/json"
+	"net/http"
+)
 
 const BlankURL = "about:blank"
 
@@ -18,6 +21,30 @@ type ProblemDetails struct {
 type ValidationErrorDetail struct {
 	Field   string `json:"field"`
 	Message string `json:"message"`
+}
+
+// MarshalJSON serializes RFC 9457 extension members at the top level.
+func (p ProblemDetails) MarshalJSON() ([]byte, error) {
+	payload := map[string]any{
+		"type":   p.Type,
+		"title":  p.Title,
+		"status": p.Status,
+	}
+	if p.Detail != "" {
+		payload["detail"] = p.Detail
+	}
+	if p.Instance != "" {
+		payload["instance"] = p.Instance
+	}
+	for key, value := range p.Extensions {
+		switch key {
+		case "", "type", "title", "status", "detail", "instance", "extensions":
+			continue
+		default:
+			payload[key] = value
+		}
+	}
+	return json.Marshal(payload)
 }
 
 // NewProblemDetails creates a ProblemDetails instance with standard fields.

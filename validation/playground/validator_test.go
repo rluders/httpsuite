@@ -7,8 +7,8 @@ import (
 )
 
 type request struct {
-	Name string `validate:"required"`
-	Age  int    `validate:"required,min=18"`
+	Name string `json:"name" validate:"required"`
+	Age  int    `json:"age" validate:"required,min=18"`
 }
 
 func TestValidate(t *testing.T) {
@@ -21,6 +21,13 @@ func TestValidate(t *testing.T) {
 	}
 	if problem.Title != "Validation Error" {
 		t.Fatalf("expected title %q, got %q", "Validation Error", problem.Title)
+	}
+	errorsValue, ok := problem.Extensions["errors"].([]httpsuite.ValidationErrorDetail)
+	if !ok {
+		t.Fatalf("expected validation error details, got %#v", problem.Extensions["errors"])
+	}
+	if len(errorsValue) == 0 || errorsValue[0].Field != "name" {
+		t.Fatalf("expected json field name in validation error, got %#v", errorsValue)
 	}
 }
 

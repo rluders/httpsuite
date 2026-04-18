@@ -32,6 +32,9 @@ func (r *SampleRequest) SetParam(fieldName, value string) error {
 }
 
 func StdMuxParamExtractor(r *http.Request, key string) string {
+	if key != "id" {
+		return ""
+	}
 	// Remove "/submit/" (7 characters) from the URL path to get just the "id"
 	// Example: /submit/123 -> 123
 	return r.URL.Path[len("/submit/"):] // Skip the "/submit/" part
