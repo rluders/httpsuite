@@ -2,16 +2,16 @@ package main
 
 import (
 	"github.com/gorilla/mux"
-	"github.com/rluders/httpsuite/v2"
+	"github.com/rluders/httpsuite/v3"
 	"log"
 	"net/http"
 	"strconv"
 )
 
 type SampleRequest struct {
-	ID   int    `json:"id" validate:"required"`
-	Name string `json:"name" validate:"required,min=3"`
-	Age  int    `json:"age" validate:"required,min=1"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	Age  int    `json:"age"`
 }
 
 type SampleResponse struct {
@@ -42,14 +42,11 @@ func main() {
 	// Creating the router with Gorilla Mux
 	r := mux.NewRouter()
 
-	// Define the ProblemBaseURL - doesn't create the handlers
-	httpsuite.SetProblemBaseURL("http://localhost:8080")
-
 	r.HandleFunc("/submit/{id}", func(w http.ResponseWriter, r *http.Request) {
 		// Using the function for parameter extraction to the ParseRequest
-		req, err := httpsuite.ParseRequest[*SampleRequest](w, r, GorillaMuxParamExtractor, "id")
+		req, err := httpsuite.ParseRequest[*SampleRequest](w, r, GorillaMuxParamExtractor, nil, "id")
 		if err != nil {
-			log.Printf("Error parsing or validating request: %v", err)
+			log.Printf("Error parsing request: %v", err)
 			return
 		}
 
@@ -65,5 +62,5 @@ func main() {
 
 	// Starting the server
 	log.Println("Starting server on :8080")
-	http.ListenAndServe(":8080", r)
+	log.Fatal(http.ListenAndServe(":8080", r))
 }

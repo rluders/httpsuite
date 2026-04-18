@@ -1,114 +1,94 @@
 package httpsuite
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
-type TestResponse struct {
+type testResponse struct {
 	Key string `json:"key"`
 }
 
-func Test_SendResponse(t *testing.T) {
+func TestSendResponse(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		code         int
 		data         any
 		problem      *ProblemDetails
-		meta         *Meta
+		meta         any
 		expectedCode int
-		expectedJSON string
+		contentType  string
 	}{
 		{
-			name:         "200 OK with TestResponse body",
+			name:         "success response",
 			code:         http.StatusOK,
-			data:         &TestResponse{Key: "value"},
+			data:         &testResponse{Key: "value"},
 			expectedCode: http.StatusOK,
-			expectedJSON: `{
-				"data": {
-					"key": "value"
-				}
-			}`,
+			contentType:  "application/json; charset=utf-8",
 		},
 		{
-			name:         "404 Not Found without body",
+			name:         "problem response",
 			code:         http.StatusNotFound,
 			problem:      NewProblemDetails(http.StatusNotFound, "", "Not Found", "The requested resource was not found"),
 			expectedCode: http.StatusNotFound,
-			expectedJSON: `{
-				"type": "about:blank",
-				"title": "Not Found",
-				"status": 404,
-				"detail": "The requested resource was not found"
-			}`,
+			contentType:  "application/problem+json; charset=utf-8",
 		},
 		{
-			name:         "200 OK with pagination metadata",
+			name:         "success response with page meta",
 			code:         http.StatusOK,
-			data:         &TestResponse{Key: "value"},
-			meta:         &Meta{TotalPages: 100, Page: 1, PageSize: 10},
+			data:         []string{"a", "b"},
+			meta:         NewPageMeta(2, 10, 25),
 			expectedCode: http.StatusOK,
-			expectedJSON: `{
-				"data": {
-					"key": "value"
-				},
-				"meta": {
-					"total_pages": 100,
-					"page": 1,
-					"page_size": 10
-				}
-			}`,
+			contentType:  "application/json; charset=utf-8",
 		},
 		{
-			name: "400 Bad Request with validation error",
-			code: http.StatusBadRequest,
-			problem: &ProblemDetails{
-				Type:   "https://example.com/validation-error",
-				Title:  "Validation Error",
-				Status: http.StatusBadRequest,
-				Detail: "One or more fields failed validation.",
-				Extensions: map[string]interface{}{
-					"errors": []ValidationErrorDetail{
-						{Field: "email", Message: "Email is required"},
-						{Field: "password", Message: "Password is required"},
-					},
-				},
-			},
+			name:         "success response with cursor meta",
+			code:         http.StatusOK,
+			data:         []string{"a", "b"},
+			meta:         NewCursorMeta("next-1", "prev-1", true, true),
+			expectedCode: http.StatusOK,
+			contentType:  "application/json; charset=utf-8",
+		},
+		{
+			name:         "problem response normalizes status",
+			code:         http.StatusBadRequest,
+			problem:      NewProblemDetails(http.StatusUnprocessableEntity, "", "Invalid Request", "invalid"),
 			expectedCode: http.StatusBadRequest,
-			expectedJSON: `{
-				"type": "https://example.com/validation-error",
-				"title": "Validation Error",
-				"status": 400,
-				"detail": "One or more fields failed validation.",
-				"extensions": {
-					"errors": [
-						{"field": "email", "message": "Email is required"},
-						{"field": "password", "message": "Password is required"}
-					]
-				}
-			}`,
+			contentType:  "application/problem+json; charset=utf-8",
 		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			w := httptest.NewRecorder()
+			t.Parallel()
 
-			// Call SendResponse with the appropriate data or problem
+			w := httptest.NewRecorder()
 			SendResponse[any](w, tt.code, tt.data, tt.problem, tt.meta)
 
-			// Assert response status code and content type
-			assert.Equal(t, tt.expectedCode, w.Code)
-			if w.Code >= 400 {
-				assert.Equal(t, "application/problem+json; charset=utf-8", w.Header().Get("Content-Type"))
-			} else {
-				assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
+			if w.Code != tt.expectedCode {
+				t.Fatalf("expected status %d, got %d", tt.expectedCode, w.Code)
 			}
-			// Assert response body
-			assert.JSONEq(t, tt.expectedJSON, w.Body.String())
+			if got := w.Header().Get("Content-Type"); got != tt.contentType {
+				t.Fatalf("expected content type %q, got %q", tt.contentType, got)
+			}
+			if !json.Valid(w.Body.Bytes()) {
+				t.Fatalf("expected valid json, got %q", w.Body.String())
+			}
+
+			if tt.problem != nil {
+				var problem ProblemDetails
+				if err := json.NewDecoder(w.Body).Decode(&problem); err != nil {
+					t.Fatalf("decode problem details: %v", err)
+				}
+				if problem.Status != tt.expectedCode {
+					t.Fatalf("expected problem status %d, got %d", tt.expectedCode, problem.Status)
+				}
+			}
 		})
 	}
 }

@@ -4,160 +4,369 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 )
 
-// TestRequest includes custom type annotation for UUID type.
-type TestRequest struct {
-	ID   int    `json:"id" validate:"required,gt=0"`
-	Name string `json:"name" validate:"required"`
+func TestParseRequest(t *testing.T) {
+	ClearValidator()
+	t.Cleanup(ClearValidator)
+
+	tests := []struct {
+		name               string
+		body               string
+		path               string
+		pathParams         []string
+		opts               *ParseOptions
+		want               *testRequest
+		wantErr            bool
+		wantStatus         int
+		wantTitle          string
+		wantDetailContains string
+	}{
+		{
+			name:       "successful request",
+			body:       `{"name":"Test"}`,
+			path:       "/test/123",
+			pathParams: []string{"id"},
+			want:       &testRequest{ID: 123, Name: "Test"},
+		},
+		{
+			name:       "body only request",
+			body:       `{"id":42,"name":"OnlyBody"}`,
+			path:       "/test",
+			pathParams: nil,
+			want:       &testRequest{ID: 42, Name: "OnlyBody"},
+		},
+		{
+			name:               "invalid json body",
+			body:               `{invalid-json}`,
+			path:               "/test/123",
+			pathParams:         []string{"id"},
+			wantErr:            true,
+			wantStatus:         http.StatusBadRequest,
+			wantTitle:          "Invalid Request",
+			wantDetailContains: "invalid character",
+		},
+		{
+			name:               "multiple json documents",
+			body:               `{"name":"Test"}{"name":"Again"}`,
+			path:               "/test/123",
+			pathParams:         []string{"id"},
+			wantErr:            true,
+			wantStatus:         http.StatusBadRequest,
+			wantTitle:          "Invalid Request",
+			wantDetailContains: "single JSON document",
+		},
+		{
+			name:               "missing parameter",
+			body:               `{"name":"Test"}`,
+			path:               "/test",
+			pathParams:         []string{"id"},
+			wantErr:            true,
+			wantStatus:         http.StatusBadRequest,
+			wantTitle:          "Missing Parameter",
+			wantDetailContains: "Parameter id not found",
+		},
+		{
+			name:               "invalid parameter",
+			body:               `{"name":"Test"}`,
+			path:               "/test/nope",
+			pathParams:         []string{"id"},
+			wantErr:            true,
+			wantStatus:         http.StatusBadRequest,
+			wantTitle:          "Invalid Parameter",
+			wantDetailContains: "Failed to bind parameter id",
+		},
+		{
+			name:               "body exceeds configured limit",
+			body:               `{"name":"TooLarge"}`,
+			path:               "/test/123",
+			pathParams:         []string{"id"},
+			opts:               &ParseOptions{MaxBodyBytes: 8},
+			wantErr:            true,
+			wantStatus:         http.StatusBadRequest,
+			wantTitle:          "Request Body Too Large",
+			wantDetailContains: "exceeds the limit",
+		},
+		{
+			name:       "custom problem config",
+			body:       `{"name":"Test"}`,
+			path:       "/test/123",
+			pathParams: []string{"id"},
+			opts: &ParseOptions{
+				Problems: &ProblemConfig{
+					BaseURL: "https://api.example.com",
+					ErrorTypePaths: map[string]string{
+						"bad_request_error": "/errors/bad-request",
+						"server_error":      "/errors/server-error",
+					},
+				},
+			},
+			want: &testRequest{ID: 123, Name: "Test"},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			var body *bytes.Buffer
+			if tt.body != "" {
+				body = bytes.NewBufferString(tt.body)
+			} else {
+				body = bytes.NewBuffer(nil)
+			}
+
+			req := httptest.NewRequest(http.MethodPost, tt.path, body)
+			w := httptest.NewRecorder()
+
+			got, err := ParseRequest[*testRequest](w, req, testParamExtractor, tt.opts, tt.pathParams...)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+
+				if w.Code != tt.wantStatus {
+					t.Fatalf("expected status %d, got %d", tt.wantStatus, w.Code)
+				}
+
+				var problem ProblemDetails
+				if decodeErr := json.NewDecoder(w.Body).Decode(&problem); decodeErr != nil {
+					t.Fatalf("decode problem details: %v", decodeErr)
+				}
+				if problem.Title != tt.wantTitle {
+					t.Fatalf("expected title %q, got %q", tt.wantTitle, problem.Title)
+				}
+				if !strings.Contains(problem.Detail, tt.wantDetailContains) {
+					t.Fatalf("expected detail %q to contain %q", problem.Detail, tt.wantDetailContains)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got == nil {
+				t.Fatalf("expected request, got nil")
+			}
+			if *got != *tt.want {
+				t.Fatalf("expected %+v, got %+v", *tt.want, *got)
+			}
+		})
+	}
 }
 
-func (r *TestRequest) SetParam(fieldName, value string) error {
-	switch strings.ToLower(fieldName) {
-	case "id":
-		id, err := strconv.Atoi(value)
-		if err != nil {
-			return errors.New("invalid id")
-		}
-		r.ID = id
-	default:
-		fmt.Printf("Parameter %s cannot be set", fieldName)
+func TestParseRequestWithoutRequestParamSetter(t *testing.T) {
+	ClearValidator()
+	t.Cleanup(ClearValidator)
+
+	req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewBufferString(`{"name":"Ada","age":36}`))
+	w := httptest.NewRecorder()
+
+	got, err := ParseRequest[*bodyOnlyRequest](w, req, testParamExtractor, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	return nil
+	if got == nil {
+		t.Fatal("expected parsed request, got nil")
+	}
+	if got.Name != "Ada" || got.Age != 36 {
+		t.Fatalf("unexpected parsed request: %#v", got)
+	}
 }
 
-// MyParamExtractor extracts parameters from the path, assuming the request URL follows a pattern like "/test/{id}".
-func MyParamExtractor(r *http.Request, key string) string {
-	pathSegments := strings.Split(r.URL.Path, "/")
-	if len(pathSegments) > 2 && key == "ID" {
-		return pathSegments[2]
-	}
-	return ""
-}
+func TestParseRequestInvalidInputs(t *testing.T) {
+	ClearValidator()
+	t.Cleanup(ClearValidator)
 
-func Test_ParseRequest(t *testing.T) {
-	type args struct {
-		w          http.ResponseWriter
-		r          *http.Request
-		pathParams []string
-	}
-	type testCase[T any] struct {
+	tests := []struct {
 		name       string
-		args       args
-		want       *TestRequest
-		wantErr    assert.ErrorAssertionFunc
-		wantDetail *ProblemDetails
-	}
-
-	tests := []testCase[TestRequest]{
+		makeReq    func() *http.Request
+		extractor  ParamExtractor
+		pathParams []string
+		wantErr    error
+	}{
 		{
-			name: "Successful Request",
-			args: args{
-				w: httptest.NewRecorder(),
-				r: func() *http.Request {
-					body, _ := json.Marshal(TestRequest{Name: "Test"})
-					req := httptest.NewRequest("POST", "/test/123", bytes.NewBuffer(body))
-					req.URL.Path = "/test/123"
-					return req
-				}(),
-				pathParams: []string{"ID"},
-			},
-			want:       &TestRequest{ID: 123, Name: "Test"},
-			wantErr:    assert.NoError,
-			wantDetail: nil,
+			name:      "nil request",
+			makeReq:   func() *http.Request { return nil },
+			extractor: testParamExtractor,
+			wantErr:   errNilHTTPRequest,
 		},
 		{
-			name: "Body Only - No URL Params",
-			args: args{
-				w: httptest.NewRecorder(),
-				r: func() *http.Request {
-					body, _ := json.Marshal(TestRequest{ID: 42, Name: "OnlyBody"})
-					req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(body))
-					return req
-				}(),
-				pathParams: []string{},
+			name: "nil body",
+			makeReq: func() *http.Request {
+				req := httptest.NewRequest(http.MethodPost, "/test/123", nil)
+				req.Body = nil
+				return req
 			},
-			want:    &TestRequest{ID: 42, Name: "OnlyBody"},
-			wantErr: assert.NoError,
+			extractor: testParamExtractor,
+			wantErr:   errNilRequestBody,
 		},
 		{
-			name: "Body Only - Nil Path Params",
-			args: args{
-				w: httptest.NewRecorder(),
-				r: func() *http.Request {
-					body, _ := json.Marshal(TestRequest{ID: 7, Name: "NilPathParams"})
-					req := httptest.NewRequest("POST", "/test", bytes.NewBuffer(body))
-					return req
-				}(),
-				pathParams: nil,
+			name: "nil extractor with params",
+			makeReq: func() *http.Request {
+				return httptest.NewRequest(http.MethodPost, "/test/123", bytes.NewBufferString(`{"name":"Test"}`))
 			},
-			want:    &TestRequest{ID: 7, Name: "NilPathParams"},
-			wantErr: assert.NoError,
-		},
-		{
-			name: "Missing body",
-			args: args{
-				w:          httptest.NewRecorder(),
-				r:          httptest.NewRequest("POST", "/test/123", nil),
-				pathParams: []string{"ID"},
-			},
-			want:    nil,
-			wantErr: assert.Error,
-			wantDetail: NewProblemDetails(http.StatusBadRequest, "about:blank", "Validation Error",
-				"One or more fields failed validation."),
-		},
-		{
-			name: "Invalid JSON Body",
-			args: args{
-				w: httptest.NewRecorder(),
-				r: func() *http.Request {
-					req := httptest.NewRequest("POST", "/test/123", bytes.NewBufferString("{invalid-json}"))
-					req.URL.Path = "/test/123"
-					return req
-				}(),
-				pathParams: []string{"ID"},
-			},
-			want:    nil,
-			wantErr: assert.Error,
-			wantDetail: NewProblemDetails(http.StatusBadRequest, "about:blank", "Invalid Request",
-				"invalid character 'i' looking for beginning of object key string"),
+			pathParams: []string{"id"},
+			wantErr:    errNilParamExtractor,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Call the function under test.
-			w := tt.args.w
-			got, err := ParseRequest[*TestRequest](w, tt.args.r, MyParamExtractor, tt.args.pathParams...)
-
-			// Validate the error response if applicable.
-			if !tt.wantErr(t, err, fmt.Sprintf("parseRequest(%v, %v, %v)", tt.args.w, tt.args.r, tt.args.pathParams)) {
-				return
+			w := httptest.NewRecorder()
+			got, err := ParseRequest[*testRequest](w, tt.makeReq(), tt.extractor, nil, tt.pathParams...)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("expected error %v, got %v", tt.wantErr, err)
 			}
-
-			// Check ProblemDetails if an error was expected.
-			if tt.wantDetail != nil {
-				rec := w.(*httptest.ResponseRecorder)
-				assert.Equal(t, "application/problem+json; charset=utf-8",
-					rec.Header().Get("Content-Type"), "Content-Type header mismatch")
-
-				var pd ProblemDetails
-				decodeErr := json.NewDecoder(rec.Body).Decode(&pd)
-				assert.NoError(t, decodeErr, "Failed to decode problem details response")
-				assert.Equal(t, tt.wantDetail.Title, pd.Title, "Problem detail title mismatch")
-				assert.Equal(t, tt.wantDetail.Status, pd.Status, "Problem detail status mismatch")
-				assert.Contains(t, pd.Detail, tt.wantDetail.Detail, "Problem detail message mismatch")
+			if got != nil {
+				t.Fatalf("expected nil request, got %#v", got)
 			}
-
-			// Validate successful response.
-			assert.Equalf(t, tt.want, got, "parseRequest(%v, %v, %v)", w, tt.args.r, tt.args.pathParams)
+			if w.Body.Len() != 0 {
+				t.Fatalf("expected no response body to be written, got %q", w.Body.String())
+			}
 		})
+	}
+}
+
+func TestParseRequestUsesDefaultValidator(t *testing.T) {
+	ClearValidator()
+	t.Cleanup(ClearValidator)
+
+	problem := &ProblemDetails{
+		Type:   GetProblemTypeURL("validation_error"),
+		Title:  "Validation Error",
+		Status: http.StatusBadRequest,
+		Detail: "One or more fields failed validation.",
+	}
+	SetValidator(stubValidator{problem: problem})
+
+	req := httptest.NewRequest(http.MethodPost, "/test/123", bytes.NewBufferString(`{"name":""}`))
+	w := httptest.NewRecorder()
+
+	got, err := ParseRequest[*testRequest](w, req, testParamExtractor, nil, "id")
+	if err == nil {
+		t.Fatalf("expected validation error, got nil")
+	}
+	if got != nil {
+		t.Fatalf("expected nil request, got %#v", got)
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+}
+
+func TestParseRequestValidatorOverride(t *testing.T) {
+	ClearValidator()
+	t.Cleanup(ClearValidator)
+
+	SetValidator(stubValidator{
+		problem: &ProblemDetails{
+			Type:   GetProblemTypeURL("validation_error"),
+			Title:  "Validation Error",
+			Status: http.StatusBadRequest,
+			Detail: "global validator failed",
+		},
+	})
+
+	override := stubValidator{
+		problem: &ProblemDetails{
+			Type:   GetProblemTypeURL("validation_error"),
+			Title:  "Validation Error",
+			Status: http.StatusBadRequest,
+			Detail: "override validator failed",
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/test/123", bytes.NewBufferString(`{"name":"ok"}`))
+	w := httptest.NewRecorder()
+
+	_, err := ParseRequest[*testRequest](w, req, testParamExtractor, &ParseOptions{Validator: override}, "id")
+	if err == nil {
+		t.Fatalf("expected validation error, got nil")
+	}
+
+	var problem ProblemDetails
+	if decodeErr := json.NewDecoder(w.Body).Decode(&problem); decodeErr != nil {
+		t.Fatalf("decode problem details: %v", decodeErr)
+	}
+	if problem.Detail != "override validator failed" {
+		t.Fatalf("expected override validator detail, got %q", problem.Detail)
+	}
+}
+
+func TestParseRequestValidationStatus(t *testing.T) {
+	ClearValidator()
+	t.Cleanup(ClearValidator)
+
+	tests := []struct {
+		name       string
+		problem    *ProblemDetails
+		wantStatus int
+	}{
+		{
+			name: "custom status preserved",
+			problem: &ProblemDetails{
+				Type:   GetProblemTypeURL("validation_error"),
+				Title:  "Validation Error",
+				Status: http.StatusUnprocessableEntity,
+				Detail: "unprocessable payload",
+			},
+			wantStatus: http.StatusUnprocessableEntity,
+		},
+		{
+			name: "invalid status falls back to bad request",
+			problem: &ProblemDetails{
+				Type:   GetProblemTypeURL("validation_error"),
+				Title:  "Validation Error",
+				Status: 0,
+				Detail: "bad payload",
+			},
+			wantStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetValidator(stubValidator{problem: tt.problem})
+
+			req := httptest.NewRequest(http.MethodPost, "/test/123", bytes.NewBufferString(`{"name":"ok"}`))
+			w := httptest.NewRecorder()
+
+			_, err := ParseRequest[*testRequest](w, req, testParamExtractor, nil, "id")
+			if !errors.Is(err, errValidationFailed) {
+				t.Fatalf("expected validation error, got %v", err)
+			}
+			if w.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d", tt.wantStatus, w.Code)
+			}
+		})
+	}
+}
+
+func TestParseRequestSkipValidation(t *testing.T) {
+	ClearValidator()
+	t.Cleanup(ClearValidator)
+
+	SetValidator(stubValidator{
+		problem: &ProblemDetails{
+			Type:   GetProblemTypeURL("validation_error"),
+			Title:  "Validation Error",
+			Status: http.StatusBadRequest,
+			Detail: "global validator failed",
+		},
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/test/123", bytes.NewBufferString(`{"name":"ok"}`))
+	w := httptest.NewRecorder()
+
+	got, err := ParseRequest[*testRequest](w, req, testParamExtractor, &ParseOptions{SkipValidation: true}, "id")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got == nil || got.ID != 123 {
+		t.Fatalf("expected parsed request, got %#v", got)
 	}
 }

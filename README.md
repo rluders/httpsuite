@@ -1,103 +1,253 @@
 # httpsuite
 
-httpsuite is a lightweight, idiomatic Go library that simplifies HTTP request parsing, validation, 
-and response handling in microservices. It’s designed to reduce boilerplate and promote clean, 
-maintainable, and testable code — all while staying framework-agnostic.
+`httpsuite` is a Go library for request parsing, response writing, and RFC 9457 problem responses.
 
-## ✨ Features
+`v3` keeps the root module stdlib-only and moves validation to an optional submodule.
 
-- 🧾 **Request Parsing**: Automatically extract and map JSON payloads and URL path parameters to Go structs.
-- ✅ **Validation:** Centralized validation using struct tags, integrated with standard libraries like `go-playground/validator`.
-- 📦 **Unified Responses:** Standardize your success and error responses (e.g., [RFC 7807 Problem Details](https://datatracker.ietf.org/doc/html/rfc7807)) for a consistent API experience.
-- 🔌 **Modular Design:** Use each component independently — ideal for custom setups, unit testing, or advanced use cases.
-- 🧪 **Test-Friendly:** Decouple parsing and validation logic for simpler, more focused test cases.
+## Features
 
-### 🔌 Supported routers
+- Parse JSON request bodies with a default `1 MiB` limit
+- Bind path params explicitly through a router-specific extractor
+- Validate automatically during `ParseRequest` when a global validator is configured
+- Keep `ParseRequest` panic-safe for invalid inputs and return regular errors instead
+- Return consistent [RFC 9457 Problem Details](https://datatracker.ietf.org/doc/html/rfc9457)
+- Write success responses with optional generic metadata
+- Support both direct helpers and optional builders
+
+## Supported routers
 
 - [Chi](https://github.com/go-chi/chi)
-- [Gorilla MUX](https://github.com/gorilla/mux)
+- [Gorilla Mux](https://github.com/gorilla/mux)
 - Go standard `http.ServeMux`
-- ...and potentially more — [Submit a PR with an example!](https://github.com/rluders/httpsuite)
 
-## 🛠 Installation
+## Installation
 
-To install **httpsuite**, run:
+Core:
 
+```bash
+go get github.com/rluders/httpsuite/v3
 ```
-go get github.com/rluders/httpsuite/v2
+
+Optional validation adapter:
+
+```bash
+go get github.com/rluders/httpsuite/validation/playground
 ```
 
-## 🚀 Usage
+## Mental model
+
+- request in: `ParseRequest(...)`
+- success out: `OK(...)`, `Created(...)`, `Reply().Meta(...).OK(...)`
+- problem out: `ProblemResponse(...)`, `NewBadRequestProblem(...)`, `Problem(...).Build()`
+- validation: configure once with `SetValidator(...)`, override locally with `ParseOptions.Validator`
+
+For simple handlers, prefer direct helpers.
+
+When a handler needs custom headers, meta, or problem composition, use the optional builders.
+
+`ParseRequest` never panics on invalid inputs such as a nil request, nil body, or nil path extractor. These cases return regular Go errors so callers can fail safely.
+
+## Quick start
+
+### Core only
 
 ```go
+package main
+
 import (
-    "github.com/go-chi/chi/v5"
-    "github.com/rluders/httpsuite/v2"
-    "net/http"
+	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/rluders/httpsuite/v3"
 )
 
-type SampleRequest struct {
-    ID   int    `json:"id" validate:"required"`
-    Name string `json:"name" validate:"required,min=3"`
+type CreateUserRequest struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
-func (r *SampleRequest) SetParam(fieldName, value string) error {
-    if fieldName == "id" {
-        id, err := strconv.Atoi(value)
-        if err != nil {
-            return err
-        }
-        r.ID = id
-    }
-    return nil
+func (r *CreateUserRequest) SetParam(fieldName, value string) error {
+	if fieldName != "id" {
+		return nil
+	}
+
+	id, err := strconv.Atoi(value)
+	if err != nil {
+		return err
+	}
+	r.ID = id
+	return nil
 }
 
 func main() {
-    r := chi.NewRouter()
+	router := chi.NewRouter()
 
-    r.Post("/submit/{id}", func(w http.ResponseWriter, r *http.Request) {
-        req, err := httpsuite.ParseRequest[*SampleRequest](w, r, chi.URLParam, "id")
-        if err != nil {
-            return // ProblemDetails already sent
-        }
+	router.Post("/users/{id}", func(w http.ResponseWriter, r *http.Request) {
+		req, err := httpsuite.ParseRequest[*CreateUserRequest](w, r, chi.URLParam, nil, "id")
+		if err != nil {
+			return
+		}
 
-        httpsuite.SendResponse(w, http.StatusOK, req, nil, nil)
-    })
+		httpsuite.OK(w, req)
+	})
 
-    http.ListenAndServe(":8080", r)
+	_ = http.ListenAndServe(":8080", router)
 }
 ```
 
-💡 Try it:
+Try it:
 
+```bash
+curl -X POST http://localhost:8080/users/123 \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Ada"}'
 ```
-curl -X POST http://localhost:8080/submit/123 \
-    -H "Content-Type: application/json" \
-    -d '{"name":"John"}'
+
+### Core + validation
+
+```go
+validator := playground.NewWithValidator(nil, &httpsuite.ProblemConfig{
+	BaseURL: "https://api.example.com",
+})
+
+httpsuite.SetValidator(validator)
+
+// Validation uses the problem status returned by the configured validator.
+// If the validator returns 422, ParseRequest writes 422.
+
+req, err := httpsuite.ParseRequest[*CreateUserRequest](
+	w,
+	r,
+	chi.URLParam,
+	&httpsuite.ParseOptions{
+		MaxBodyBytes: 1 << 20,
+	},
+	"id",
+)
 ```
 
-## 📂 Examples
+### Direct helpers
 
-Check out the `examples/` folder for a complete working project demonstrating:
+```go
+httpsuite.OK(w, user)
+httpsuite.OKWithMeta(w, users, httpsuite.NewPageMeta(page, pageSize, totalItems))
+httpsuite.Created(w, user, "/users/42")
+httpsuite.ProblemResponse(w, httpsuite.NewNotFoundProblem("user not found"))
+```
 
-- Full request lifecycle
-- Param parsing
-- Validation
-- ProblemDetails usage
-- JSON response formatting
+### Fluent helpers
 
-## 📖 Tutorial & Article
+```go
+httpsuite.Reply().
+	Meta(httpsuite.NewPageMeta(page, pageSize, totalItems)).
+	OK(w, users)
+
+httpsuite.Reply().
+	Header("X-Request-ID", requestID).
+	Created(w, user, "/users/42")
+```
+
+### Builders
+
+```go
+problem := httpsuite.Problem(http.StatusNotFound).
+	Type(httpsuite.GetProblemTypeURL("not_found_error")).
+	Title("User Not Found").
+	Detail("user 42 does not exist").
+	Instance("/users/42").
+	Build()
+
+httpsuite.RespondProblem(problem).
+	Header("X-Trace-ID", traceID).
+	Write(w)
+```
+
+## Architecture
+
+- root module: `github.com/rluders/httpsuite/v3`
+- optional validation adapter: `github.com/rluders/httpsuite/validation/playground`
+- root stays stdlib-only
+- validation is opt-in at bootstrap, automatic at parse time when configured
+- response metadata is generic and can use `PageMeta` or `CursorMeta`
+
+```mermaid
+flowchart LR
+    A[HTTP handler] --> B[ParseRequest]
+    B --> C[Decode JSON body]
+    B --> D[Bind path params]
+    B --> E{validator configured?}
+    E -- yes --> F[Validate request]
+    E -- no --> G[typed request]
+    F --> G
+    G --> H[OK / Created / Reply]
+    G --> I[ProblemResponse / Problem builder]
+```
+
+```mermaid
+flowchart TD
+    Core[httpsuite/v3 core] --> Request[request helpers]
+    Core --> Response[response helpers + builders]
+    Core --> Problem[problem details + config]
+    Adapter[validation/playground] -->|implements Validator| Core
+```
+
+## Migration from v2 to v3
+
+- update imports from `github.com/rluders/httpsuite/v2` to `github.com/rluders/httpsuite/v3`
+- update `ParseRequest` calls to pass `opts` before `pathParams`
+- configure validation globally with `httpsuite.SetValidator(...)` or `playground.RegisterDefault()`
+- `ParseRequest` now validates automatically when a validator is configured
+- validator-provided `ProblemDetails.Status` is respected when valid
+- use `ParseOptions.SkipValidation` to opt out per call
+- use `ParseOptions.Validator` to override the global validator per call
+- use `ProblemConfig` when you want custom problem type URLs
+
+## Examples
+
+Examples live in [`examples/`](/home/rluders/Projects/rluders/httpsuite/examples).
+
+- [`examples/stdmux`](/home/rluders/Projects/rluders/httpsuite/examples/stdmux/main.go): core-only with `http.ServeMux`
+- [`examples/gorillamux`](/home/rluders/Projects/rluders/httpsuite/examples/gorillamux/main.go): path params with Gorilla Mux
+- [`examples/chi`](/home/rluders/Projects/rluders/httpsuite/examples/chi/main.go): global validation with Chi
+- [`examples/restapi`](/home/rluders/Projects/rluders/httpsuite/examples/restapi/main.go): fuller REST API example with pagination-style metadata and custom problems
+
+`examples/restapi` shows:
+
+- global validator setup with `playground`
+- `ProblemConfig` with custom type URLs
+- create, get, and list endpoints
+- `PageMeta` and `CursorMeta`
+- direct helpers and fluent helpers together
+- custom `ProblemDetails` for domain-level `404`s
+
+## Notes for contributors
+
+- request façade and helpers live in `request*.go`
+- response façade, helpers, builders, and write internals live in `response*.go`
+- problem details, config, builders, and helpers live in `problem*.go`
+
+## Release notes draft for `v3.0.0`
+
+- root module is now stdlib-only
+- validation moved to `github.com/rluders/httpsuite/validation/playground`
+- request parsing supports configurable body-size limits
+- problem type configuration is explicit via `ProblemConfig`
+- global validator support added via `SetValidator` and `RegisterDefault`
+- response metadata is generic, with optional `PageMeta` and `CursorMeta`
+
+## Tutorial
 
 - [Improving Request Validation and Response Handling in Go Microservices](https://medium.com/@rluders/improving-request-validation-and-response-handling-in-go-microservices-cc54208123f2)
 
-## 🤝 Contributing
+## Contributing
 
-All contributions are welcome! Whether it's a bug fix, feature proposal, or router integration example:
+Contributions are welcome:
 
-- Open an issue
-- Submit a PR
-- Join the discussion!
+- open an issue
+- submit a PR
+- add a router example
 
-## 🪪 License
+## License
 
-The MIT License (MIT). Please see [License File](LICENSE) for more information.
+MIT. See [LICENSE](LICENSE).
