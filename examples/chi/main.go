@@ -3,7 +3,8 @@ package main
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/rluders/httpsuite/v2"
+	"github.com/rluders/httpsuite/v3"
+	"github.com/rluders/httpsuite/validation/playground"
 	"log"
 	"net/http"
 	"strconv"
@@ -51,14 +52,13 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-
-	// Define the ProblemBaseURL - doesn't create the handlers
-	httpsuite.SetProblemBaseURL("http://localhost:8080")
+	httpsuite.SetValidator(playground.NewWithValidator(nil, &httpsuite.ProblemConfig{
+		BaseURL: "http://localhost:8080",
+	}))
 
 	// Define the endpoint POST
 	r.Post("/submit/{id}", func(w http.ResponseWriter, r *http.Request) {
-		// Using the function for parameter extraction to the ParseRequest
-		req, err := httpsuite.ParseRequest[*SampleRequest](w, r, ChiParamExtractor, "id")
+		req, err := httpsuite.ParseRequest[*SampleRequest](w, r, ChiParamExtractor, nil, "id")
 		if err != nil {
 			log.Printf("Error parsing or validating request: %v", err)
 			return
@@ -76,5 +76,5 @@ func main() {
 
 	// Starting the server
 	log.Println("Starting server on :8080")
-	http.ListenAndServe(":8080", r)
+	log.Fatal(http.ListenAndServe(":8080", r))
 }

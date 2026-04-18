@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  root:
+    name: Root checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify root tests
+        run: go test ./...
+
+      - name: Verify race detector
+        run: go test -race ./...
+
+      - name: Verify go vet
+        run: go vet ./...
+
+  validation-playground:
+    name: Validation submodule
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: validation/playground/go.mod
+          cache: true
+
+      - name: Download validation module dependencies
+        working-directory: validation/playground
+        env:
+          GOWORK: off
+        run: go mod download
+
+      - name: Verify validation/playground
+        working-directory: validation/playground
+        env:
+          GOWORK: off
+        run: go test ./...
+
+  examples:
+    name: Examples (${{ matrix.example }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - examples/stdmux
+          - examples/gorillamux
+          - examples/chi
+          - examples/restapi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.example }}/go.mod
+          cache: true
+
+      - name: Download example module dependencies
+        working-directory: ${{ matrix.example }}
+        env:
+          GOWORK: off
+        run: go mod download
+
+      - name: Verify example module
+        working-directory: ${{ matrix.example }}
+        env:
+          GOWORK: off
+        run: go test ./...
+
+  workspace:
+    name: Workspace sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Sync go.work
+        run: go work sync
+
+      - name: Verify workspace is clean
+        run: git diff --exit-code -- go.work go.work.sum

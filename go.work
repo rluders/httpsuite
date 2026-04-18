@@ -1,0 +1,10 @@
+go 1.23
+
+use (
+	.
+	./examples/chi
+	./examples/gorillamux
+	./examples/restapi
+	./examples/stdmux
+	./validation/playground
+)

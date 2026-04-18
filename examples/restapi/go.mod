@@ -1,4 +1,4 @@
-module chi_example
+module restapi_example
 
 go 1.23
 
