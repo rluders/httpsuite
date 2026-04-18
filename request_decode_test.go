@@ -62,6 +62,30 @@ func TestDecodeRequestBody(t *testing.T) {
 			t.Fatalf("expected body too large error, got %s", decodeErr.Kind)
 		}
 	})
+
+	t.Run("multiple json documents", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(`{"id":1}{"id":2}`))
+		_, err := DecodeRequestBody[*testRequest](req, defaultMaxBodyBytes)
+		var decodeErr *BodyDecodeError
+		if !errors.As(err, &decodeErr) {
+			t.Fatalf("expected BodyDecodeError, got %v", err)
+		}
+		if decodeErr.Kind != BodyDecodeErrorMultipleDocuments {
+			t.Fatalf("expected multiple documents error, got %s", decodeErr.Kind)
+		}
+	})
+
+	t.Run("trailing decode body too large", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(`{} {"name":"trailing"}`))
+		_, err := DecodeRequestBody[*testRequest](req, 3)
+		var decodeErr *BodyDecodeError
+		if !errors.As(err, &decodeErr) {
+			t.Fatalf("expected BodyDecodeError, got %v", err)
+		}
+		if decodeErr.Kind != BodyDecodeErrorBodyTooLarge {
+			t.Fatalf("expected body too large error, got %s", decodeErr.Kind)
+		}
+	})
 }
 
 func BenchmarkParseRequestBody(b *testing.B) {

@@ -46,10 +46,11 @@ func problemFromDecodeError(err error, problems *ProblemConfig) (*ProblemDetails
 	if errors.As(err, &decodeErr) {
 		switch decodeErr.Kind {
 		case BodyDecodeErrorBodyTooLarge:
+			status = http.StatusRequestEntityTooLarge
 			return NewProblemDetails(
 				status,
 				problems.TypeURL("bad_request_error"),
-				"Request Body Too Large",
+				"Payload Too Large",
 				decodeErr.Error(),
 			), status
 		case BodyDecodeErrorMultipleDocuments:

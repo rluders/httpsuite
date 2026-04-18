@@ -7,6 +7,7 @@
 ## Features
 
 - Parse JSON request bodies with a default `1 MiB` limit
+- Return `413 Payload Too Large` when the configured body limit is exceeded
 - Bind path params explicitly through a router-specific extractor
 - Validate automatically during `ParseRequest` when a global validator is configured
 - Keep `ParseRequest` panic-safe for invalid inputs and return regular errors instead
@@ -205,12 +206,12 @@ flowchart TD
 
 ## Examples
 
-Examples live in [`examples/`](/home/rluders/Projects/rluders/httpsuite/examples).
+Examples live in [`examples/`](examples/).
 
-- [`examples/stdmux`](/home/rluders/Projects/rluders/httpsuite/examples/stdmux/main.go): core-only with `http.ServeMux`
-- [`examples/gorillamux`](/home/rluders/Projects/rluders/httpsuite/examples/gorillamux/main.go): path params with Gorilla Mux
-- [`examples/chi`](/home/rluders/Projects/rluders/httpsuite/examples/chi/main.go): global validation with Chi
-- [`examples/restapi`](/home/rluders/Projects/rluders/httpsuite/examples/restapi/main.go): fuller REST API example with pagination-style metadata and custom problems
+- [`examples/stdmux`](examples/stdmux/main.go): core-only with `http.ServeMux`
+- [`examples/gorillamux`](examples/gorillamux/main.go): path params with Gorilla Mux
+- [`examples/chi`](examples/chi/main.go): global validation with Chi
+- [`examples/restapi`](examples/restapi/main.go): fuller REST API example with pagination-style metadata and custom problems
 
 `examples/restapi` shows:
 
@@ -235,6 +236,15 @@ Examples live in [`examples/`](/home/rluders/Projects/rluders/httpsuite/examples
 - problem type configuration is explicit via `ProblemConfig`
 - global validator support added via `SetValidator` and `RegisterDefault`
 - response metadata is generic, with optional `PageMeta` and `CursorMeta`
+
+## Release workflow
+
+The release workflow supports two paths:
+
+- push an existing `v*` tag to verify and publish that release
+- run `Release` with `workflow_dispatch` and choose `major`, `minor`, or `patch`
+
+On manual dispatch, the workflow finds the latest `v*` tag, bumps it according to the selected semantic version part, pushes the new tag, and publishes the GitHub release for that tag.
 
 ## Tutorial
 

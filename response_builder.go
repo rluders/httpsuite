@@ -54,9 +54,12 @@ func (b *ReplyBuilder) Header(key, value string) *ReplyBuilder {
 
 // Headers merges multiple response headers for a fluent helper chain.
 func (b *ReplyBuilder) Headers(headers http.Header) *ReplyBuilder {
+	if b.headers == nil {
+		b.headers = make(http.Header)
+	}
 	for key, values := range headers {
 		for _, value := range values {
-			b.Header(key, value)
+			b.headers.Add(key, value)
 		}
 	}
 	return b
@@ -104,9 +107,12 @@ func (b *ResponseBuilder[T]) Header(key, value string) *ResponseBuilder[T] {
 
 // Headers merges multiple response headers.
 func (b *ResponseBuilder[T]) Headers(headers http.Header) *ResponseBuilder[T] {
+	if b.headers == nil {
+		b.headers = make(http.Header)
+	}
 	for key, values := range headers {
 		for _, value := range values {
-			b.Header(key, value)
+			b.headers.Add(key, value)
 		}
 	}
 	return b

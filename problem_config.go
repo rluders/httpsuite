@@ -39,7 +39,7 @@ func mergeProblemConfig(config *ProblemConfig) ProblemConfig {
 	for key, value := range config.ErrorTypePaths {
 		merged.ErrorTypePaths[key] = value
 	}
-	return merged.Clone()
+	return merged
 }
 
 // Clone returns a deep copy of the config.
