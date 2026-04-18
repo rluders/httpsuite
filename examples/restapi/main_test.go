@@ -20,7 +20,6 @@ func TestClampPageWindow(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			from, to := clampPageWindow(tt.page, tt.pageSize, tt.total)
 			if from != tt.wantFrom || to != tt.wantTo {

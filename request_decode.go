@@ -99,10 +99,7 @@ func DecodeRequestBody[T any](r *http.Request, maxBodyBytes int64) (T, error) {
 			Err:  err,
 		}
 	}
-	return request, &BodyDecodeError{
-		Kind: BodyDecodeErrorMultipleDocuments,
-		Err:  errors.New("request body must contain a single JSON document"),
-	}
+	return request, &BodyDecodeError{Kind: BodyDecodeErrorMultipleDocuments}
 }
 
 type nilResponseWriter struct{}

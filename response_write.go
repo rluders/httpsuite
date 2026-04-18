@@ -84,7 +84,7 @@ func writeProblemDetail(w http.ResponseWriter, code int, problem *ProblemDetails
 	w.Header().Set("Content-Type", "application/problem+json; charset=utf-8")
 	w.WriteHeader(effectiveStatus)
 	if _, err := w.Write(buffer.Bytes()); err != nil {
-		log.Printf("Failed to encode problem details: %v", err)
+		log.Printf("Failed to write problem details response body: %v", err)
 	}
 }
 
