@@ -224,18 +224,9 @@ Examples live in [`examples/`](examples/).
 
 ## Notes for contributors
 
-- request façade and helpers live in `request*.go`
-- response façade, helpers, builders, and write internals live in `response*.go`
+- request facade and helpers live in `request*.go`
+- response facade, helpers, builders, and write internals live in `response*.go`
 - problem details, config, builders, and helpers live in `problem*.go`
-
-## Release notes draft for `v3.0.0`
-
-- root module is now stdlib-only
-- validation moved to `github.com/rluders/httpsuite/validation/playground`
-- request parsing supports configurable body-size limits
-- problem type configuration is explicit via `ProblemConfig`
-- global validator support added via `SetValidator` and `RegisterDefault`
-- response metadata is generic, with optional `PageMeta` and `CursorMeta`
 
 ## Release workflow
 
@@ -249,6 +240,8 @@ On manual dispatch, the workflow finds the latest `v*` tag, bumps it according t
 ## Tutorial
 
 - [Improving Request Validation and Response Handling in Go Microservices](https://medium.com/@rluders/improving-request-validation-and-response-handling-in-go-microservices-cc54208123f2)
+
+> Do you have a project example or a tutorial? Add it here.
 
 ## Contributing
 
