@@ -2,7 +2,8 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/rluders/httpsuite/v3.svg)](https://pkg.go.dev/github.com/rluders/httpsuite/v3)
 [![Go Report Card](https://goreportcard.com/badge/github.com/rluders/httpsuite/v3)](https://goreportcard.com/report/github.com/rluders/httpsuite/v3)
-[![GitHub release](https://img.shields.io/github/v/release/rluders/httpsuite)](https://github.com/rluders/httpsuite/releases)
+[![GitHub release](https://img.shields.io/github/v/release/rluders/httpsuite?sort=semver)](https://github.com/rluders/httpsuite/releases)
+[![codecov](https://codecov.io/gh/rluders/httpsuite/graph/badge.svg?token=E9mGGRHicy)](https://codecov.io/gh/rluders/httpsuite)
 [![License](https://img.shields.io/github/license/rluders/httpsuite)](LICENSE)
 ![stdlib-only](https://img.shields.io/badge/dependencies-stdlib--only-blue)
 ![RFC 9457](https://img.shields.io/badge/errors-RFC%209457-orange)
