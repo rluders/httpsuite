@@ -33,13 +33,18 @@ jobs:
           cache: true
 
       - name: Verify root tests
-        run: go test ./...
+        run: go test ./... -coverprofile=coverage.txt
 
       - name: Verify race detector
         run: go test -race ./...
 
       - name: Verify go vet
         run: go vet ./...
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   validation-playground:
     name: Validation submodule
