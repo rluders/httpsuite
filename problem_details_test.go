@@ -2,6 +2,7 @@ package httpsuite
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 )
 
@@ -17,6 +18,72 @@ func TestNewProblemDetailsDefaults(t *testing.T) {
 	}
 	if details.Title != "Internal Server Error" {
 		t.Fatalf("expected fallback title, got %q", details.Title)
+	}
+}
+
+func TestProblemDetailsJSONRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	original := ProblemDetails{
+		Type:     "https://example.com/errors/bad",
+		Title:    "Bad Request",
+		Status:   400,
+		Detail:   "broken",
+		Instance: "/things/1",
+		Extensions: map[string]interface{}{
+			"messageKey":    "errors.bad",
+			"correlationId": "abc-123",
+		},
+	}
+
+	body, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded ProblemDetails
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if !reflect.DeepEqual(original, decoded) {
+		t.Fatalf("round trip mismatch:\nwant %#v\ngot  %#v", original, decoded)
+	}
+}
+
+func TestProblemDetailsUnmarshalJSONNoExtensions(t *testing.T) {
+	t.Parallel()
+
+	decoded := ProblemDetails{Extensions: map[string]interface{}{"stale": true}}
+	if err := json.Unmarshal([]byte(`{"type":"about:blank","title":"T","status":404}`), &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if decoded.Extensions != nil {
+		t.Fatalf("expected nil extensions, got %#v", decoded.Extensions)
+	}
+	if decoded.Status != 404 || decoded.Title != "T" {
+		t.Fatalf("unexpected decode: %#v", decoded)
+	}
+}
+
+func TestProblemDetailsUnmarshalJSONNull(t *testing.T) {
+	t.Parallel()
+
+	decoded := ProblemDetails{Title: "keep", Status: 400}
+	if err := json.Unmarshal([]byte(`null`), &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if decoded.Title != "keep" || decoded.Status != 400 {
+		t.Fatalf("expected null to be a no-op, got %#v", decoded)
+	}
+}
+
+func TestProblemDetailsUnmarshalJSONInvalid(t *testing.T) {
+	t.Parallel()
+
+	var decoded ProblemDetails
+	if err := json.Unmarshal([]byte(`{"status":"nope"}`), &decoded); err == nil {
+		t.Fatal("expected error for wrong status type")
 	}
 }
 
