@@ -296,7 +296,7 @@ Set the base URL and extra error type paths once at startup; `GetProblemTypeURL`
 ```go
 cfg := httpsuite.NewProblemConfig()
 cfg.BaseURL = "https://api.example.com"
-cfg.ErrorTypePaths["unauthorized"] = "/errors/unauthorized"
+cfg.ErrorTypePaths["payment_required_error"] = "/errors/payment-required"
 httpsuite.SetProblemConfig(cfg)
 
 // restore the built-in default
