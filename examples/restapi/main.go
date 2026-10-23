@@ -158,6 +158,8 @@ func main() {
 	r.Post("/users", func(w http.ResponseWriter, r *http.Request) {
 		req, err := httpsuite.ParseRequest[*CreateUserRequest](w, r, nilParamExtractor, &httpsuite.ParseOptions{
 			MaxBodyBytes: 2 << 10,
+			// Clients may send "Precognition: true" to validate without creating a user.
+			Precognition: true,
 		})
 		if err != nil {
 			return
