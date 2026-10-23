@@ -310,6 +310,11 @@ httpsuite.OK(w, user)
 httpsuite.OKWithMeta(w, users, httpsuite.NewPageMeta(page, pageSize, totalItems))
 httpsuite.Created(w, user, "/users/42")
 httpsuite.ProblemResponse(w, httpsuite.NewNotFoundProblem("user not found"))
+httpsuite.ProblemResponse(w, httpsuite.NewUnauthorizedProblem("missing token"))
+httpsuite.ProblemResponse(w, httpsuite.NewForbiddenProblem("admin only"))
+httpsuite.ProblemResponse(w, httpsuite.NewConflictProblem("email already taken"))
+httpsuite.ProblemResponse(w, httpsuite.NewUnprocessableProblem("order already shipped"))
+httpsuite.ProblemResponse(w, httpsuite.NewInternalProblem("unexpected error"))
 ```
 
 ## Fluent helpers

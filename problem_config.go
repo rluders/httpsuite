@@ -20,10 +20,14 @@ type ProblemConfig struct {
 func NewProblemConfig() ProblemConfig {
 	return ProblemConfig{
 		ErrorTypePaths: map[string]string{
-			"validation_error":  "/errors/validation-error",
-			"not_found_error":   "/errors/not-found",
-			"server_error":      "/errors/server-error",
-			"bad_request_error": "/errors/bad-request",
+			"validation_error":    "/errors/validation-error",
+			"not_found_error":     "/errors/not-found",
+			"server_error":        "/errors/server-error",
+			"bad_request_error":   "/errors/bad-request",
+			"unauthorized_error":  "/errors/unauthorized",
+			"forbidden_error":     "/errors/forbidden",
+			"conflict_error":      "/errors/conflict",
+			"unprocessable_error": "/errors/unprocessable-entity",
 		},
 	}
 }
