@@ -289,12 +289,28 @@ req, err := httpsuite.ParseRequest[*CreateUserRequest](
 )
 ```
 
+### Problem type URLs
+
+Set the base URL and extra error type paths once at startup; `GetProblemTypeURL` and the problem helpers pick them up. `ParseOptions.Problems` still overrides per call.
+
+```go
+cfg := httpsuite.NewProblemConfig()
+cfg.BaseURL = "https://api.example.com"
+cfg.ErrorTypePaths["payment_required_error"] = "/errors/payment-required"
+httpsuite.SetProblemConfig(cfg)
+
+// restore the built-in default
+httpsuite.SetProblemConfig(httpsuite.NewProblemConfig())
+```
+
 ## Direct helpers
 
 ```go
 httpsuite.OK(w, user)
 httpsuite.OKWithMeta(w, users, httpsuite.NewPageMeta(page, pageSize, totalItems))
 httpsuite.Created(w, user, "/users/42")
+httpsuite.Accepted(w, job)
+httpsuite.NoContent(w)
 httpsuite.ProblemResponse(w, httpsuite.NewNotFoundProblem("user not found"))
 httpsuite.ProblemResponse(w, httpsuite.NewUnauthorizedProblem("missing token"))
 httpsuite.ProblemResponse(w, httpsuite.NewForbiddenProblem("admin only"))
@@ -313,6 +329,14 @@ httpsuite.Reply().
 httpsuite.Reply().
 	Header("X-Request-ID", requestID).
 	Created(w, user, "/users/42")
+
+httpsuite.Reply().
+	Header("Location", "/jobs/7").
+	Accepted(w, job)
+
+httpsuite.Reply().
+	Header("X-Request-ID", requestID).
+	NoContent(w)
 ```
 
 ## Builders
