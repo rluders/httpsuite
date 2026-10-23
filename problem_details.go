@@ -1,6 +1,7 @@
 package httpsuite
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 )
@@ -45,6 +46,47 @@ func (p ProblemDetails) MarshalJSON() ([]byte, error) {
 		}
 	}
 	return json.Marshal(payload)
+}
+
+// UnmarshalJSON reads the standard RFC 9457 members and collects every other
+// top-level member into Extensions, mirroring MarshalJSON.
+// A JSON null leaves p unchanged, matching encoding/json semantics.
+func (p *ProblemDetails) UnmarshalJSON(data []byte) error {
+	if string(bytes.TrimSpace(data)) == "null" {
+		return nil
+	}
+
+	var known struct {
+		Type     string `json:"type"`
+		Title    string `json:"title"`
+		Status   int    `json:"status"`
+		Detail   string `json:"detail"`
+		Instance string `json:"instance"`
+	}
+	if err := json.Unmarshal(data, &known); err != nil {
+		return err
+	}
+
+	var members map[string]any
+	if err := json.Unmarshal(data, &members); err != nil {
+		return err
+	}
+	for _, key := range []string{"type", "title", "status", "detail", "instance"} {
+		delete(members, key)
+	}
+
+	decoded := ProblemDetails{
+		Type:     known.Type,
+		Title:    known.Title,
+		Status:   known.Status,
+		Detail:   known.Detail,
+		Instance: known.Instance,
+	}
+	if len(members) > 0 {
+		decoded.Extensions = members
+	}
+	*p = decoded
+	return nil
 }
 
 // NewProblemDetails creates a ProblemDetails instance with standard fields.

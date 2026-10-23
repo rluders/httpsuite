@@ -298,6 +298,11 @@ httpsuite.Created(w, user, "/users/42")
 httpsuite.Accepted(w, job)
 httpsuite.NoContent(w)
 httpsuite.ProblemResponse(w, httpsuite.NewNotFoundProblem("user not found"))
+httpsuite.ProblemResponse(w, httpsuite.NewUnauthorizedProblem("missing token"))
+httpsuite.ProblemResponse(w, httpsuite.NewForbiddenProblem("admin only"))
+httpsuite.ProblemResponse(w, httpsuite.NewConflictProblem("email already taken"))
+httpsuite.ProblemResponse(w, httpsuite.NewUnprocessableProblem("order already shipped"))
+httpsuite.ProblemResponse(w, httpsuite.NewInternalProblem("unexpected error"))
 ```
 
 ## Fluent helpers
