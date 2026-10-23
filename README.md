@@ -295,6 +295,8 @@ req, err := httpsuite.ParseRequest[*CreateUserRequest](
 httpsuite.OK(w, user)
 httpsuite.OKWithMeta(w, users, httpsuite.NewPageMeta(page, pageSize, totalItems))
 httpsuite.Created(w, user, "/users/42")
+httpsuite.Accepted(w, job)
+httpsuite.NoContent(w)
 httpsuite.ProblemResponse(w, httpsuite.NewNotFoundProblem("user not found"))
 httpsuite.ProblemResponse(w, httpsuite.NewUnauthorizedProblem("missing token"))
 httpsuite.ProblemResponse(w, httpsuite.NewForbiddenProblem("admin only"))
@@ -313,6 +315,14 @@ httpsuite.Reply().
 httpsuite.Reply().
 	Header("X-Request-ID", requestID).
 	Created(w, user, "/users/42")
+
+httpsuite.Reply().
+	Header("Location", "/jobs/7").
+	Accepted(w, job)
+
+httpsuite.Reply().
+	Header("X-Request-ID", requestID).
+	NoContent(w)
 ```
 
 ## Builders

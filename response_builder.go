@@ -79,6 +79,18 @@ func (b *ReplyBuilder) Created(w http.ResponseWriter, data any, location string)
 	builder.Write(w)
 }
 
+// Accepted writes a 202 JSON response using the fluent helper configuration.
+func (b *ReplyBuilder) Accepted(w http.ResponseWriter, data any) {
+	Respond(data).Status(http.StatusAccepted).Meta(b.meta).Headers(b.headers).Write(w)
+}
+
+// NoContent writes a 204 response with no body using the fluent helper configuration.
+// Metadata is ignored because a 204 response must not carry a body.
+func (b *ReplyBuilder) NoContent(w http.ResponseWriter) {
+	applyHeaders(w, b.headers)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // Problem writes a problem response using the fluent helper configuration.
 func (b *ReplyBuilder) Problem(w http.ResponseWriter, problem *ProblemDetails) {
 	RespondProblem(problem).Headers(b.headers).Write(w)

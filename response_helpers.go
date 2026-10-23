@@ -17,6 +17,16 @@ func Created[T any](w http.ResponseWriter, data T, location string) {
 	Reply().Created(w, data, location)
 }
 
+// Accepted writes a 202 JSON response without metadata.
+func Accepted[T any](w http.ResponseWriter, data T) {
+	Reply().Accepted(w, data)
+}
+
+// NoContent writes a 204 response with no body.
+func NoContent(w http.ResponseWriter) {
+	Reply().NoContent(w)
+}
+
 // ProblemResponse writes a problem response using the problem's status.
 func ProblemResponse(w http.ResponseWriter, problem *ProblemDetails) {
 	if problem == nil {
