@@ -1,6 +1,7 @@
 package httpsuite
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 )
@@ -49,7 +50,12 @@ func (p ProblemDetails) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON reads the standard RFC 9457 members and collects every other
 // top-level member into Extensions, mirroring MarshalJSON.
+// A JSON null leaves p unchanged, matching encoding/json semantics.
 func (p *ProblemDetails) UnmarshalJSON(data []byte) error {
+	if string(bytes.TrimSpace(data)) == "null" {
+		return nil
+	}
+
 	var known struct {
 		Type     string `json:"type"`
 		Title    string `json:"title"`

@@ -66,6 +66,18 @@ func TestProblemDetailsUnmarshalJSONNoExtensions(t *testing.T) {
 	}
 }
 
+func TestProblemDetailsUnmarshalJSONNull(t *testing.T) {
+	t.Parallel()
+
+	decoded := ProblemDetails{Title: "keep", Status: 400}
+	if err := json.Unmarshal([]byte(`null`), &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if decoded.Title != "keep" || decoded.Status != 400 {
+		t.Fatalf("expected null to be a no-op, got %#v", decoded)
+	}
+}
+
 func TestProblemDetailsUnmarshalJSONInvalid(t *testing.T) {
 	t.Parallel()
 
