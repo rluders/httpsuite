@@ -118,3 +118,28 @@ func TestProblemDetailsMarshalJSONFlattensExtensions(t *testing.T) {
 		t.Fatalf("expected trace_id extension, got %#v", payload["trace_id"])
 	}
 }
+
+func TestProblemDetailsMarshalJSONHasNoNestedExtensions(t *testing.T) {
+	t.Parallel()
+
+	body, err := json.Marshal(ProblemDetails{
+		Type:       BlankURL,
+		Title:      "Bad Request",
+		Status:     400,
+		Extensions: map[string]interface{}{"code": "E1"},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if _, ok := payload["extensions"]; ok {
+		t.Fatalf("unexpected nested extensions key: %s", body)
+	}
+	if payload["code"] != "E1" {
+		t.Fatalf("expected flattened extension, got %s", body)
+	}
+}

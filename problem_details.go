@@ -10,12 +10,15 @@ const BlankURL = "about:blank"
 
 // ProblemDetails conforms to RFC 9457, providing a standard format for describing errors in HTTP APIs.
 type ProblemDetails struct {
-	Type       string                 `json:"type"`
-	Title      string                 `json:"title"`
-	Status     int                    `json:"status"`
-	Detail     string                 `json:"detail,omitempty"`
-	Instance   string                 `json:"instance,omitempty"`
-	Extensions map[string]interface{} `json:"extensions,omitempty"`
+	Type     string `json:"type"`
+	Title    string `json:"title"`
+	Status   int    `json:"status"`
+	Detail   string `json:"detail,omitempty"`
+	Instance string `json:"instance,omitempty"`
+	// Extensions holds RFC 9457 extension members. MarshalJSON and
+	// UnmarshalJSON flatten them to the top level; there is no nested
+	// "extensions" object on the wire.
+	Extensions map[string]interface{} `json:"-"`
 }
 
 // ValidationErrorDetail provides structured details about a single validation error.
