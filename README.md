@@ -289,6 +289,20 @@ req, err := httpsuite.ParseRequest[*CreateUserRequest](
 )
 ```
 
+### Problem type URLs
+
+Set the base URL and extra error type paths once at startup; `GetProblemTypeURL` and the problem helpers pick them up. `ParseOptions.Problems` still overrides per call.
+
+```go
+cfg := httpsuite.NewProblemConfig()
+cfg.BaseURL = "https://api.example.com"
+cfg.ErrorTypePaths["payment_required_error"] = "/errors/payment-required"
+httpsuite.SetProblemConfig(cfg)
+
+// restore the built-in default
+httpsuite.SetProblemConfig(httpsuite.NewProblemConfig())
+```
+
 ## Direct helpers
 
 ```go

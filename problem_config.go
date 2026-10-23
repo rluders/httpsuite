@@ -1,8 +1,14 @@
 package httpsuite
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
 
-var defaultProblemConfig = NewProblemConfig()
+var (
+	defaultProblemConfigMu sync.RWMutex
+	defaultProblemConfig   = NewProblemConfig()
+)
 
 // ProblemConfig controls how problem type URLs are generated.
 type ProblemConfig struct {
@@ -28,7 +34,23 @@ func NewProblemConfig() ProblemConfig {
 
 // DefaultProblemConfig returns a copy of the package default config.
 func DefaultProblemConfig() ProblemConfig {
+	defaultProblemConfigMu.RLock()
+	defer defaultProblemConfigMu.RUnlock()
 	return defaultProblemConfig.Clone()
+}
+
+// SetProblemConfig replaces the package-level default config used by
+// GetProblemTypeURL, DefaultProblemConfig and the helpers that resolve problem
+// types. The config is copied, so later changes to cfg do not affect the
+// default. A per-call ParseOptions.Problems still overrides it.
+//
+// Call it once at startup. To restore the built-in default, call
+// SetProblemConfig(NewProblemConfig()).
+func SetProblemConfig(cfg ProblemConfig) {
+	clone := cfg.Clone()
+	defaultProblemConfigMu.Lock()
+	defer defaultProblemConfigMu.Unlock()
+	defaultProblemConfig = clone
 }
 
 func mergeProblemConfig(config *ProblemConfig) ProblemConfig {
@@ -75,6 +97,8 @@ func (c ProblemConfig) TypeURL(errorType string) string {
 
 // GetProblemTypeURL returns the default problem type URL for a known error type.
 func GetProblemTypeURL(errorType string) string {
+	defaultProblemConfigMu.RLock()
+	defer defaultProblemConfigMu.RUnlock()
 	return defaultProblemConfig.TypeURL(errorType)
 }
 
