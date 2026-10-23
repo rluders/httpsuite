@@ -354,6 +354,39 @@ httpsuite.RespondProblem(problem).
 	Write(w)
 ```
 
+## Precognition
+
+Let clients validate a request against the endpoint's real decoding, binding and validation rules without running business logic. Opt in per endpoint:
+
+```go
+req, err := httpsuite.ParseRequest[*CreateUserRequest](w, r, chi.URLParam, &httpsuite.ParseOptions{
+	Precognition: true,
+}, "id")
+if err != nil {
+	// Covers parse errors, validation errors and handled precognitive requests.
+	return
+}
+
+// Never reached for a precognitive request.
+user := store.Create(req)
+```
+
+A client sends the same request with `Precognition: true`:
+
+| Outcome | Response | `err` |
+| --- | --- | --- |
+| Valid | `204 No Content`, `Precognition-Success: true` | `ErrPrecognitionHandled` |
+| Validation failed | `422` with the validator's `ProblemDetails` | validation error |
+| Malformed body / too large / bad path param | usual `400` / `413` problem | parse error |
+
+Notes:
+
+* Without `ParseOptions.Precognition`, the header is ignored and the request is processed normally.
+* Opted-in endpoints add `Vary: Precognition` to responses.
+* Use `httpsuite.IsPrecognitionHandled(err)` to tell a handled precognitive request apart from a failure, and `httpsuite.IsPrecognitionRequest(r)` to inspect the request.
+* With `SkipValidation`, a precognitive request only checks decoding and path binding.
+* A successful pre-validation does not guarantee the real request will succeed; state may change in between.
+
 ## Architecture
 
 * root module: `github.com/rluders/httpsuite/v3`

@@ -32,6 +32,7 @@ func normalizeParseOptions(opts *ParseOptions) ParseOptions {
 			normalized.Validator = opts.Validator
 		}
 		normalized.SkipValidation = opts.SkipValidation
+		normalized.Precognition = opts.Precognition
 	}
 	if normalized.Problems == nil {
 		problems := DefaultProblemConfig()

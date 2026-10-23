@@ -21,6 +21,12 @@ type ParseOptions struct {
 	Problems       *ProblemConfig
 	Validator      Validator
 	SkipValidation bool
+	// Precognition enables validation-only processing for requests that send
+	// the Precognition: true header. Such requests are decoded, bound and
+	// validated as usual; on success ParseRequest writes 204 No Content and
+	// returns ErrPrecognitionHandled, on validation failure it writes the
+	// validator's problem with status 422. When false, the header is ignored.
+	Precognition bool
 }
 
 const defaultMaxBodyBytes int64 = 1 << 20
